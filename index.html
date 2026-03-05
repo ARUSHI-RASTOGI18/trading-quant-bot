@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock Trading Quant Bot with Dashboard</title>
+
+  <!-- Link to css/style.css — save that file in the css/ folder -->
+  <link rel="stylesheet" href="css/style.css"/>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <!-- ── SITE HEADER: Bold centered title at top ── -->
+  <header class="site-header">
+    <h1 class="site-title">Stock Trading Quant Bot with Dashboard</h1>
+  </header>
+
+  <!-- ── NAVIGATION BAR: directly below heading ── -->
+  <nav class="navbar">
+    <ul class="nav-tabs">
+      <li><a href="index.html"     class="nav-tab active" id="tab-home">Home</a></li>
+      <li><a href="dashboard.html" class="nav-tab"        id="tab-dashboard">Dashboard</a></li>
+      <li><a href="#"              class="nav-tab"        id="tab-settings" onclick="toggleSettings(event)">Settings</a></li>
+    </ul>
+  </nav>
+
+  <!-- ── MAIN CONTENT ── -->
+  <main class="main-content">
+
+    <!-- HOME SECTION (default visible) -->
+    <section class="page-section" id="section-home">
+      <div class="home-card">
+
+    <!-- <span class="badge">Final Year Project</span> -->
+
+        <h2 class="home-heading">Algorithmic Trading, Visualised.</h2>
+
+        <p class="home-desc">
+          The <strong>Stock Trading Quant Bot</strong> is an automated system that fetches 
+          live market data, applies quantitative strategies, backtests them against historical 
+          prices, and simulates paper trades — all tracked through a real-time performance dashboard.
+        </p>
+
+        <ul class="feature-list">
+          <li><span class="bullet">▸</span> Real-time stock data analysis &amp; technical indicators</li>
+          <li><span class="bullet">▸</span> Strategy backtesting with Sharpe ratio &amp; drawdown metrics</li>
+          <li><span class="bullet">▸</span> Paper trading simulation with zero risk</li>
+          <li><span class="bullet">▸</span> Live equity curve &amp; trade history dashboard</li>
+        </ul>
+
+        <a href="dashboard.html" class="cta-btn">
+          Open Trading Dashboard <span class="btn-arrow">→</span>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- SETTINGS SECTION (hidden by default) -->
+    <section class="page-section hidden" id="section-settings">
+      <div class="settings-card">
+
+        <h2 class="settings-title">Account Access</h2>
+        <p class="settings-desc">
+          Log in to save your strategies and track performance, or create a new account to get started.
+        </p>
+
+        <div class="auth-buttons">
+          <button class="btn-login">Log In</button>
+          <button class="btn-signup">Sign Up</button>
+        </div>
+
+        <p class="settings-note">⚠ No backend connected yet — authentication coming in a future step.</p>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── FOOTER ── -->
+  <footer class="footer">
+    <p>Stock Trading Quant Bot with Dashboard &mdash;</p>
+  </footer>
+
+  <!-- JS toggles Settings panel. main.js linked here for shared utilities -->
+  <script src="js/main.js"></script>
+  <script>
+    function toggleSettings(e) {
+      e.preventDefault();
+      const home        = document.getElementById('section-home');
+      const settings    = document.getElementById('section-settings');
+      const allTabs     = document.querySelectorAll('.nav-tab');
+      const settingsTab = document.getElementById('tab-settings');
+      const isOpen      = !settings.classList.contains('hidden');
+
+      home.classList.toggle('hidden', !isOpen);
+      settings.classList.toggle('hidden', isOpen);
+
+      allTabs.forEach(t => t.classList.remove('active'));
+      if (!isOpen) {
+        settingsTab.classList.add('active');
+      } else {
+        document.getElementById('tab-home').classList.add('active');
+      }
+    }
+  </script>
+
+</body>
+</html>

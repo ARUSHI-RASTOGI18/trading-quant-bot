@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — Stock Trading Quant Bot</title>
+
+  <!-- Global styles (same as index.html for consistent header/nav) -->
+  <link rel="stylesheet" href="css/style.css"/>
+
+  <!-- Dashboard-specific styles -->
+  <link rel="stylesheet" href="css/dashboard.css"/>
+
+  <!-- Google Fonts (same as index.html) -->
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body class="dashboard-page">
+
+  <!-- ── SITE HEADER (identical to index.html) ── -->
+  <header class="site-header">
+    <h1 class="site-title">Stock Trading Quant Bot with Dashboard</h1>
+  </header>
+
+  <!-- ── NAVIGATION BAR (identical to index.html) ── -->
+  <nav class="navbar">
+    <ul class="nav-tabs">
+      <li><a href="index.html"     class="nav-tab"        id="tab-home">Home</a></li>
+      <li><a href="dashboard.html" class="nav-tab active"  id="tab-dashboard">Dashboard</a></li>
+      <li><a href="#"              class="nav-tab"         id="tab-settings" onclick="toggleSettings(event)">Settings</a></li>
+    </ul>
+  </nav>
+
+  <!-- ── SETTINGS PANEL (hidden by default, same logic as index.html) ── -->
+  <div class="settings-overlay hidden" id="settings-overlay">
+    <div class="settings-popup">
+      <h2 class="settings-title">Account Access</h2>
+      <p class="settings-desc">Log in or create an account to save your strategies.</p>
+      <div class="auth-buttons">
+        <button class="btn-login">Log In</button>
+        <button class="btn-signup">Sign Up</button>
+      </div>
+      <p class="settings-note">⚠ No backend connected yet — coming in a future step.</p>
+      <button class="settings-close" onclick="toggleSettings(event)">✕ Close</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       MAIN DASHBOARD CONTENT
+       ════════════════════════════════════ -->
+  <main class="dash-main">
+
+    <!-- ── SECTION 1: STOCK CONTROLS ── -->
+    <section class="dash-section" id="controls-section">
+      <div class="section-label">// SECTION 1 — STOCK CONTROLS</div>
+      <div class="controls-card">
+
+        <div class="control-group">
+          <label class="ctrl-label" for="stock-symbol">Stock Symbol</label>
+          <input
+            class="ctrl-input"
+            type="text"
+            id="stock-symbol"
+            placeholder="e.g. AAPL"
+            maxlength="10"
+          />
+        </div>
+
+        <div class="control-group">
+          <label class="ctrl-label" for="strategy-select">Strategy</label>
+          <select class="ctrl-select" id="strategy-select">
+            <option value="ma">Moving Average</option>
+            <option value="rsi">RSI</option>
+            <option value="macd">MACD</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label class="ctrl-label" for="timeframe-select">Timeframe</label>
+          <select class="ctrl-select" id="timeframe-select">
+            <option value="1m">1 Month</option>
+            <option value="3m">3 Months</option>
+            <option value="1y">1 Year</option>
+          </select>
+        </div>
+
+        <div class="control-group control-btn-group">
+          <label class="ctrl-label invisible">Run</label>
+          <button class="run-btn" id="run-strategy-btn">
+            <span class="run-icon">▶</span> Run Strategy
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── SECTION 2: PRICE CHART ── -->
+    <section class="dash-section" id="chart-section">
+      <div class="section-label">// SECTION 2 — PRICE CHART</div>
+      <div class="chart-card">
+        <div class="chart-toolbar">
+          <span class="chart-ticker" id="chart-ticker-label">AAPL</span>
+          <span class="chart-strategy-label" id="chart-strategy-label">Moving Average</span>
+          <div class="chart-toolbar-right">
+            <span class="chart-dot dot-green"></span><span class="chart-dot-label">Price</span>
+            <span class="chart-dot dot-blue"></span><span class="chart-dot-label">Signal</span>
+          </div>
+        </div>
+        <div class="chart-placeholder" id="chart-area">
+          <svg class="chart-placeholder-icon" viewBox="0 0 64 48" fill="none">
+            <polyline points="2,40 12,28 22,33 34,14 44,20 54,6 62,10"
+              stroke="#0057ff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>
+            <polyline points="2,44 12,38 22,40 34,28 44,32 54,20 62,22"
+              stroke="#00b37d" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.25"/>
+          </svg>
+          <p class="chart-placeholder-text">Price Chart Will Appear Here</p>
+          <p class="chart-placeholder-sub">Select a symbol, strategy, and timeframe — then click <strong>Run Strategy</strong></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SECTION 3: TRADING SIGNALS TABLE ── -->
+    <section class="dash-section" id="signals-section">
+      <div class="section-label">// SECTION 3 — TRADING SIGNALS</div>
+      <div class="table-card">
+        <div class="table-header-row">
+          <h3 class="table-title">Signal Log</h3>
+          <span class="table-badge">3 signals</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="signals-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Signal</th>
+                <th>Price (USD)</th>
+                <th>Strategy</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">2024-01-01</td>
+                <td><span class="signal-badge buy">BUY</span></td>
+                <td class="mono">$180.00</td>
+                <td>Moving Average</td>
+              </tr>
+              <tr>
+                <td class="mono">2024-01-05</td>
+                <td><span class="signal-badge sell">SELL</span></td>
+                <td class="mono">$192.00</td>
+                <td>Moving Average</td>
+              </tr>
+              <tr>
+                <td class="mono">2024-01-12</td>
+                <td><span class="signal-badge buy">BUY</span></td>
+                <td class="mono">$185.00</td>
+                <td>RSI</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SECTION 4: PERFORMANCE METRICS ── -->
+    <section class="dash-section" id="metrics-section">
+      <div class="section-label">// SECTION 4 — PERFORMANCE METRICS</div>
+      <div class="metrics-grid">
+
+        <div class="metric-card">
+          <div class="metric-icon metric-green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
+            </svg>
+          </div>
+          <p class="metric-label">Total Profit</p>
+          <p class="metric-value positive">+12.4%</p>
+          <p class="metric-sub">Since backtest start</p>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon metric-blue">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/>
+            </svg>
+          </div>
+          <p class="metric-label">Win Rate</p>
+          <p class="metric-value neutral">63%</p>
+          <p class="metric-sub">Winning trades</p>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon metric-amber">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </div>
+          <p class="metric-label">No. of Trades</p>
+          <p class="metric-value neutral">24</p>
+          <p class="metric-sub">Total executed</p>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-icon metric-red">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>
+            </svg>
+          </div>
+          <p class="metric-label">Max Drawdown</p>
+          <p class="metric-value negative">-8.2%</p>
+          <p class="metric-sub">Peak to trough</p>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── FOOTER ── -->
+  <footer class="footer">
+    <p>Stock Trading Quant Bot with Dashboard &mdash; Final Year Project &mdash; For Academic Use Only</p>
+  </footer>
+
+  <!-- Chart.js CDN — MUST load before dashboard.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <!-- JS files -->
+  <script src="js/main.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script>
+    // Settings toggle (same logic as index.html)
+    function toggleSettings(e) {
+      e.preventDefault();
+      const overlay     = document.getElementById('settings-overlay');
+      const allTabs     = document.querySelectorAll('.nav-tab');
+      const settingsTab = document.getElementById('tab-settings');
+      const isOpen      = !overlay.classList.contains('hidden');
+
+      overlay.classList.toggle('hidden', isOpen);
+      allTabs.forEach(t => t.classList.remove('active'));
+      if (!isOpen) {
+        settingsTab.classList.add('active');
+      } else {
+        document.getElementById('tab-dashboard').classList.add('active');
+      }
+    }
+
+    // Update chart toolbar labels when controls change
+    document.getElementById('stock-symbol').addEventListener('input', function() {
+      const val = this.value.toUpperCase() || 'AAPL';
+      document.getElementById('chart-ticker-label').textContent = val;
+    });
+
+    const strategyNames = { ma: 'Moving Average', rsi: 'RSI', macd: 'MACD' };
+    document.getElementById('strategy-select').addEventListener('change', function() {
+      document.getElementById('chart-strategy-label').textContent = strategyNames[this.value];
+    });
+
+    // Run button feedback
+    document.getElementById('run-strategy-btn').addEventListener('click', function() {
+      this.textContent = '⏳ Running...';
+      this.disabled = true;
+      setTimeout(() => {
+        this.innerHTML = '<span class="run-icon">▶</span> Run Strategy';
+        this.disabled = false;
+      }, 1800);
+    });
+  </script>
+
+</body>
+</html>
