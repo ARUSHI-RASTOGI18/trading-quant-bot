@@ -63,6 +63,9 @@ if "last_show_bb"  not in st.session_state:
 if "last_updated"  not in st.session_state:
     st.session_state.last_updated  = None
 
+if "active_chart_strategy" not in st.session_state:
+    st.session_state.active_chart_strategy = None
+
 # ---------------------------------------------------------------------------
 # Custom CSS — dark, professional styling
 # ---------------------------------------------------------------------------
@@ -330,16 +333,13 @@ if st.session_state.analysis_run:
         unsafe_allow_html=True,
     )
 
-    chart_strategy = _selected_signals[0]
-    fig = generate_chart(
-        df_signals,
-        strategy_column=chart_strategy,
-        show_sma=_show_sma,
-        show_ema=_show_ema,
-        show_bb=_show_bb,
-        open_in_browser=False,
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    # Set default active chart strategy on first run or if previous selection
+    # is no longer in the selected list (e.g. user deselected it)
+    if (
+        st.session_state.active_chart_strategy is None
+        or st.session_state.active_chart_strategy not in _selected_signals
+    ):
+        st.session_state.active_chart_strategy = _selected_signals[0]
 
     # Strategy switcher buttons (only shown when multiple strategies selected)
     if len(_selected_signals) > 1:
@@ -347,16 +347,27 @@ if st.session_state.analysis_run:
         chart_cols = st.columns(len(_selected_signals))
         for i, sig in enumerate(_selected_signals):
             with chart_cols[i]:
-                if st.button(strategy_options[sig], key=f"chart_btn_{sig}"):
-                    fig2 = generate_chart(
-                        df_signals,
-                        strategy_column=sig,
-                        show_sma=_show_sma,
-                        show_ema=_show_ema,
-                        show_bb=_show_bb,
-                        open_in_browser=False,
-                    )
-                    st.plotly_chart(fig2, use_container_width=True)
+                # Highlight the currently active strategy button
+                label = f"✅ {strategy_options[sig]}" if sig == st.session_state.active_chart_strategy else strategy_options[sig]
+                if st.button(label, key=f"chart_btn_{sig}"):
+                    st.session_state.active_chart_strategy = sig
+
+    # Always render one chart using the active strategy — single unique key prevents
+    # the StreamlitDuplicateElementId error on auto-refresh and strategy switches
+    active_strategy = st.session_state.active_chart_strategy
+    fig = generate_chart(
+        df_signals,
+        strategy_column=active_strategy,
+        show_sma=_show_sma,
+        show_ema=_show_ema,
+        show_bb=_show_bb,
+        open_in_browser=False,
+    )
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key=f"main_chart_{active_strategy}_{refresh_count}",
+    )
 
     # -----------------------------------------------------------------------
     # SECTION 2 — Backtest Results
