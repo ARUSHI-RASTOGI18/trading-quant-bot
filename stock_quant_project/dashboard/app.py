@@ -6,8 +6,10 @@ Backend modules are imported unchanged.
 
 import os
 import sys
+import time
 from datetime import datetime
 
+import requests
 import pandas as pd
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
@@ -78,17 +80,60 @@ SIGNAL_KEY_MAP = {
     "EMA_signal":        "ema",
 }
 
-# Autocomplete ticker list
-TICKER_LIST = [
-    "AAPL", "TSLA", "NVDA", "MSFT", "GOOGL", "AMZN", "META", "NFLX",
-    "AMD",  "INTC", "ORCL", "ADBE", "CRM",   "PYPL", "UBER", "LYFT",
-    "SNAP", "TWTR", "SPOT", "ABNB", "COIN",  "HOOD", "PLTR", "SQ",
-    "JPM",  "BAC",  "GS",   "MS",   "WFC",   "C",    "V",    "MA",
-    "DIS",  "NFLX", "PARA", "WBD",  "CMCSA", "T",    "VZ",   "TMUS",
-    "XOM",  "CVX",  "BP",   "SHEL", "TTE",   "BA",   "LMT",  "RTX",
-    "AMGN", "GILD", "MRNA", "PFE",  "JNJ",   "UNH",  "CVS",  "WMT",
-    "TGT",  "COST", "HD",   "LOW",  "NKE",   "SBUX", "MCD",  "CMG",
+# Fallback tickers shown before the user types anything
+FALLBACK_TICKERS = [
+    "AAPL", "TSLA", "NVDA", "MSFT", "GOOGL",
+    "AMZN", "META", "NFLX", "AMD",  "INTC",
 ]
+
+# ---------------------------------------------------------------------------
+# Dynamic Yahoo Finance ticker search
+# ---------------------------------------------------------------------------
+_YF_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search"
+_YF_HEADERS    = {"User-Agent": "Mozilla/5.0"}
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_ticker_suggestions(query: str) -> list[str]:
+    """
+    Query Yahoo Finance search API and return up to 10 equity ticker symbols.
+
+    Results are cached for 60 seconds so rapid keystrokes don't flood the API.
+    Falls back to an empty list on any network or parse error.
+
+    Args:
+        query: The partial ticker or company name typed by the user.
+
+    Returns:
+        List of ticker symbol strings, e.g. ["TSLA", "TSM", "TSLX"].
+    """
+    query = query.strip()
+    if not query:
+        return FALLBACK_TICKERS
+
+    try:
+        resp = requests.get(
+            _YF_SEARCH_URL,
+            params={"q": query, "lang": "en-US", "region": "US",
+                    "quotesCount": 10, "newsCount": 0},
+            headers=_YF_HEADERS,
+            timeout=5,
+        )
+        resp.raise_for_status()
+        data    = resp.json()
+        quotes  = data.get("quotes", [])
+        symbols = [
+            q["symbol"]
+            for q in quotes
+            if q.get("symbol")                           # must have a symbol
+            and q.get("quoteType", "") in              # only equities + ETFs
+                ("EQUITY", "ETF", "MUTUALFUND", "")
+            and "." not in q["symbol"]                   # skip non-US (e.g. BP.L)
+        ]
+        return symbols[:10] if symbols else FALLBACK_TICKERS
+    except Exception:
+        # Network error, rate-limit, or unexpected JSON — silently fall back
+        return FALLBACK_TICKERS
 
 INDICATOR_EXPLAINERS = {
     "MA_signal": {
@@ -479,14 +524,30 @@ st.markdown("<div class='ctrl-wrap'>", unsafe_allow_html=True)
 col1, col2, col3, col4, col5 = st.columns([2, 1.5, 3, 2, 1.5])
 
 with col1:
-    # Autocomplete via searchable selectbox
-    default_idx = TICKER_LIST.index(st.session_state.last_symbol) \
-        if st.session_state.last_symbol in TICKER_LIST else 0
-    symbol = st.selectbox(
+    # Step 1 — user types a query
+    ticker_query = st.text_input(
         "Stock Symbol",
-        options=TICKER_LIST,
+        value="",
+        placeholder="Type to search  e.g. Apple, TSLA, NVD ...",
+        key="ticker_query",
+    )
+
+    # Step 2 — fetch live suggestions (cached) and let user pick one
+    suggestions = fetch_ticker_suggestions(ticker_query)
+
+    # Pre-select the last known symbol if it is in the suggestion list,
+    # otherwise default to position 0
+    try:
+        default_idx = suggestions.index(st.session_state.last_symbol)
+    except ValueError:
+        default_idx = 0
+
+    symbol = st.selectbox(
+        "Select from results",
+        options=suggestions,
         index=default_idx,
         key="sel_symbol",
+        help="Suggestions update as you type. Select the ticker you want to analyse.",
     )
 
 with col2:
