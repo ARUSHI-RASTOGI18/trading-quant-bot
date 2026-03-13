@@ -1,8 +1,7 @@
 """
 Stock Quant Analysis Dashboard
-dashboard/app.py  —  UI layer only.
-Backend modules (data_fetcher, indicators, trading_strategies, backtester,
-chart_generator) are imported unchanged.
+dashboard/app.py — UI layer only.
+Backend modules are imported unchanged.
 """
 
 import os
@@ -20,11 +19,11 @@ _root = os.path.join(os.path.dirname(__file__), "..")
 for _p in ("data", "indicators", "strategies", "backtesting", "dashboard"):
     sys.path.append(os.path.join(_root, _p))
 
-from data_fetcher       import fetch_stock_data          # noqa: E402
-from indicators         import calculate_indicators      # noqa: E402
-from trading_strategies import run_strategies, strategies_info  # noqa: E402
-from backtester         import backtest                  # noqa: E402
-from chart_generator    import generate_chart            # noqa: E402
+from data_fetcher       import fetch_stock_data
+from indicators         import calculate_indicators
+from trading_strategies import run_strategies, strategies_info
+from backtester         import backtest
+from chart_generator    import generate_chart
 
 # ---------------------------------------------------------------------------
 # Page configuration
@@ -36,7 +35,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
-# Auto-refresh — every 30 s while analysis is live
+# Auto-refresh every 30 s
 # ---------------------------------------------------------------------------
 refresh_count = st_autorefresh(interval=30_000, key="autorefresh")
 
@@ -79,12 +78,22 @@ SIGNAL_KEY_MAP = {
     "EMA_signal":        "ema",
 }
 
-POPULAR_TICKERS = ["AAPL", "TSLA", "NVDA", "MSFT", "GOOGL", "AMZN", "META", "NFLX"]
+# Autocomplete ticker list
+TICKER_LIST = [
+    "AAPL", "TSLA", "NVDA", "MSFT", "GOOGL", "AMZN", "META", "NFLX",
+    "AMD",  "INTC", "ORCL", "ADBE", "CRM",   "PYPL", "UBER", "LYFT",
+    "SNAP", "TWTR", "SPOT", "ABNB", "COIN",  "HOOD", "PLTR", "SQ",
+    "JPM",  "BAC",  "GS",   "MS",   "WFC",   "C",    "V",    "MA",
+    "DIS",  "NFLX", "PARA", "WBD",  "CMCSA", "T",    "VZ",   "TMUS",
+    "XOM",  "CVX",  "BP",   "SHEL", "TTE",   "BA",   "LMT",  "RTX",
+    "AMGN", "GILD", "MRNA", "PFE",  "JNJ",   "UNH",  "CVS",  "WMT",
+    "TGT",  "COST", "HD",   "LOW",  "NKE",   "SBUX", "MCD",  "CMG",
+]
 
 INDICATOR_EXPLAINERS = {
     "MA_signal": {
-        "name":  "Moving Average (SMA / EMA)",
-        "body":  (
+        "name": "Moving Average  (SMA 20 vs EMA 20)",
+        "body": (
             "The Moving Average strategy compares a 20-period Simple Moving Average "
             "(SMA) with a 20-period Exponential Moving Average (EMA). The SMA weights "
             "all periods equally and reacts slowly to price changes. The EMA gives more "
@@ -92,42 +101,42 @@ INDICATOR_EXPLAINERS = {
             "the market is trending upward; when it falls below, a downtrend is indicated."
         ),
         "rules": [
-            ("SMA 20 > EMA 20", "BUY",  "buy"),
-            ("SMA 20 < EMA 20", "SELL", "sell"),
-            ("SMA 20 = EMA 20", "HOLD", "hold"),
+            ("SMA 20 > EMA 20", "BUY"),
+            ("SMA 20 < EMA 20", "SELL"),
+            ("SMA 20 = EMA 20", "HOLD"),
         ],
     },
     "RSI_signal": {
-        "name":  "RSI — Relative Strength Index",
-        "body":  (
+        "name": "RSI  —  Relative Strength Index (14)",
+        "body": (
             "RSI measures the speed and magnitude of recent price changes on a scale "
             "of 0 to 100. A reading below 30 suggests the asset is oversold and may "
             "recover. A reading above 70 suggests the asset is overbought and may "
             "pull back. Between those thresholds the trend is considered neutral."
         ),
         "rules": [
-            ("RSI 14 < 30  (oversold)",  "BUY",  "buy"),
-            ("RSI 14 > 70  (overbought)", "SELL", "sell"),
-            ("30 <= RSI <= 70",            "HOLD", "hold"),
+            ("RSI 14 < 30  (oversold)",   "BUY"),
+            ("RSI 14 > 70  (overbought)", "SELL"),
+            ("30 to 70",                   "HOLD"),
         ],
     },
     "MACD_signal_trade": {
-        "name":  "MACD — Moving Average Convergence Divergence",
-        "body":  (
+        "name": "MACD  —  Moving Average Convergence Divergence",
+        "body": (
             "MACD is computed as EMA(12) minus EMA(26). A 9-period EMA of the MACD "
             "line, called the signal line, is plotted alongside it. When the MACD "
-            "crosses above the signal line, bullish momentum is building. When it "
+            "crosses above the signal line bullish momentum is building. When it "
             "crosses below, bearish momentum is taking over."
         ),
         "rules": [
-            ("MACD crosses above signal line", "BUY",  "buy"),
-            ("MACD crosses below signal line", "SELL", "sell"),
-            ("No crossover",                   "HOLD", "hold"),
+            ("MACD crosses above signal line", "BUY"),
+            ("MACD crosses below signal line", "SELL"),
+            ("No crossover",                    "HOLD"),
         ],
     },
     "BB_signal": {
-        "name":  "Bollinger Bands",
-        "body":  (
+        "name": "Bollinger Bands  (20-period, 2 standard deviations)",
+        "body": (
             "Bollinger Bands place an upper and lower bound at two standard deviations "
             "above and below a 20-period SMA. Wide bands indicate high volatility; "
             "narrow bands indicate low volatility. Price touching the lower band "
@@ -135,85 +144,99 @@ INDICATOR_EXPLAINERS = {
             "it may be overbought."
         ),
         "rules": [
-            ("Close < Lower Band", "BUY",  "buy"),
-            ("Close > Upper Band", "SELL", "sell"),
-            ("Close between bands", "HOLD", "hold"),
+            ("Close < Lower Band", "BUY"),
+            ("Close > Upper Band", "SELL"),
+            ("Close between bands", "HOLD"),
         ],
     },
     "EMA_signal": {
-        "name":  "EMA Crossover",
-        "body":  (
+        "name": "EMA Crossover  (EMA 12 vs EMA 26)",
+        "body": (
             "The EMA Crossover strategy uses two exponential moving averages: "
             "EMA(12) as the fast line and EMA(26) as the slow line. When the fast "
             "line crosses above the slow line, short-term momentum is shifting "
             "upward. When it crosses below, momentum is shifting downward."
         ),
         "rules": [
-            ("EMA 12 crosses above EMA 26", "BUY",  "buy"),
-            ("EMA 12 crosses below EMA 26", "SELL", "sell"),
-            ("No crossover",                "HOLD", "hold"),
+            ("EMA 12 crosses above EMA 26", "BUY"),
+            ("EMA 12 crosses below EMA 26", "SELL"),
+            ("No crossover",                 "HOLD"),
         ],
     },
 }
 
 # ---------------------------------------------------------------------------
-# CSS — clean, minimal dark theme, no emojis in style names
+# CSS — clean, minimal dark theme, zero emojis
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 
 :root {
-    --bg:          #0A0E14;
-    --surface:     #0F1620;
-    --surface-2:   #141E2B;
-    --border:      #1C2B3A;
-    --border-2:    #243447;
-    --accent:      #3B9EFF;
-    --green:       #23D18B;
-    --red:         #F14C60;
-    --amber:       #E8A838;
-    --text-hi:     #E8EDF2;
-    --text-mid:    #8899AA;
-    --text-lo:     #3D5166;
-    --font-body:   'DM Sans', sans-serif;
-    --font-mono:   'DM Mono', monospace;
-    --radius:      8px;
-    --radius-lg:   12px;
+    --bg:        #0A0E14;
+    --surface:   #0F1620;
+    --surface-2: #141E2B;
+    --border:    #1C2B3A;
+    --border-2:  #243447;
+    --accent:    #3B9EFF;
+    --green:     #23D18B;
+    --red:       #F14C60;
+    --amber:     #E8A838;
+    --text-hi:   #E8EDF2;
+    --text-mid:  #8899AA;
+    --text-lo:   #3D5166;
+    --body:      'DM Sans', sans-serif;
+    --mono:      'DM Mono', monospace;
+    --r:         8px;
+    --r-lg:      12px;
 }
 
-/* ── Reset / base ── */
-html, body, .stApp { background: var(--bg) !important; color: var(--text-hi); font-family: var(--font-body); }
+html, body, .stApp {
+    background: var(--bg) !important;
+    color: var(--text-hi);
+    font-family: var(--body);
+}
 [data-testid="stSidebar"] { display: none !important; }
-.block-container { padding: 2rem 2.5rem 4rem !important; max-width: 1400px !important; margin: 0 auto; }
-p, li { color: var(--text-mid); font-size: 14px; line-height: 1.7; }
-hr { border: none !important; border-top: 1px solid var(--border) !important; margin: 2rem 0 !important; }
-a { color: var(--accent); text-decoration: none; }
+.block-container {
+    padding: 2.5rem 3rem 5rem !important;
+    max-width: 1320px !important;
+    margin: 0 auto;
+}
+p, li { color: var(--text-mid); font-size: 14px; line-height: 1.75; }
+hr { border: none !important; border-top: 1px solid var(--border) !important; margin: 2.5rem 0 !important; }
 
-/* ── Page heading ── */
+/* ── Page heading (centered) ── */
+.page-header {
+    text-align: center;
+    padding: 36px 24px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+}
 .page-title {
-    font-size: clamp(20px, 3vw, 30px);
+    font-size: clamp(22px, 3.5vw, 32px);
     font-weight: 600;
     color: var(--text-hi);
-    margin: 0 0 6px;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.4px;
+    margin-bottom: 8px;
 }
 .page-desc {
     font-size: 14px;
     color: var(--text-mid);
-    margin: 0 0 4px;
-    max-width: 720px;
+    max-width: 640px;
+    margin: 0 auto 10px;
+    line-height: 1.7;
 }
 .page-meta {
-    font-family: var(--font-mono);
+    font-family: var(--mono);
     font-size: 11px;
     color: var(--text-lo);
+    margin-top: 6px;
 }
-.live-indicator {
+.live-badge {
     display: inline-flex; align-items: center; gap: 5px;
-    font-family: var(--font-mono); font-size: 11px; color: var(--green);
+    font-family: var(--mono); font-size: 11px; color: var(--green);
     background: rgba(35,209,139,.07); border: 1px solid rgba(35,209,139,.2);
-    border-radius: 20px; padding: 3px 10px; margin-left: 12px;
+    border-radius: 20px; padding: 3px 10px; margin-left: 10px;
     vertical-align: middle;
 }
 .live-dot {
@@ -223,157 +246,186 @@ a { color: var(--accent); text-decoration: none; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
 
 /* ── Control panel ── */
-.ctrl-panel {
+.ctrl-wrap {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 20px 24px;
-    margin: 20px 0;
-}
-.ticker-suggestions {
-    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;
-}
-.ticker-pill {
-    font-family: var(--font-mono); font-size: 11px;
-    color: var(--accent);
-    background: rgba(59,158,255,.07); border: 1px solid rgba(59,158,255,.18);
-    border-radius: 4px; padding: 2px 8px;
+    border-radius: var(--r-lg);
+    padding: 20px 24px 16px;
+    margin-bottom: 28px;
 }
 
-/* ── Section heading ── */
-.section-title {
-    font-size: 13px; font-weight: 600; letter-spacing: 0.8px;
-    text-transform: uppercase; color: var(--text-mid);
+/* ── Section headings ── */
+.sec-head {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--text-lo);
     border-bottom: 1px solid var(--border);
-    padding-bottom: 8px; margin: 32px 0 16px;
+    padding-bottom: 8px;
+    margin: 36px 0 18px;
 }
 
 /* ── KPI cards ── */
-.kpi-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
 .kpi-card {
-    flex: 1 1 140px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 16px 18px;
-    min-width: 120px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 18px 16px;
+    text-align: center;
 }
 .kpi-label {
-    font-family: var(--font-mono); font-size: 10px;
-    color: var(--text-lo); text-transform: uppercase;
-    letter-spacing: 0.7px; margin-bottom: 8px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.7px;
+    text-transform: uppercase; color: var(--text-lo); margin-bottom: 10px;
 }
 .kpi-val {
-    font-family: var(--font-mono); font-size: 22px; font-weight: 500;
+    font-family: var(--mono); font-size: 22px; font-weight: 500;
     color: var(--text-hi);
 }
 .kpi-val.pos { color: var(--green); }
 .kpi-val.neg { color: var(--red); }
 
-/* ── Signal chips ── */
+/* ── Chip signals ── */
 .chip {
-    display: inline-block; font-family: var(--font-mono); font-size: 11px;
+    display: inline-block; font-family: var(--mono); font-size: 11px;
     border-radius: 4px; padding: 2px 8px; font-weight: 500;
 }
-.chip.buy  { background: rgba(35,209,139,.1);  color: var(--green); border: 1px solid rgba(35,209,139,.25); }
-.chip.sell { background: rgba(241,76,96,.1);   color: var(--red);   border: 1px solid rgba(241,76,96,.25); }
-.chip.hold { background: rgba(232,168,56,.1);  color: var(--amber); border: 1px solid rgba(232,168,56,.25); }
+.chip.buy  { background: rgba(35,209,139,.1);  color:var(--green); border:1px solid rgba(35,209,139,.25); }
+.chip.sell { background: rgba(241,76,96,.1);   color:var(--red);   border:1px solid rgba(241,76,96,.25);  }
+.chip.hold { background: rgba(232,168,56,.1);  color:var(--amber); border:1px solid rgba(232,168,56,.25); }
 
-/* ── Indicator explainer cards ── */
+/* ── Explainer cards ── */
 .explainer {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 18px 20px; margin-bottom: 12px;
-    height: 100%;
+    border-radius: var(--r); padding: 20px 22px; height: 100%;
 }
 .explainer-name {
     font-size: 13px; font-weight: 600; color: var(--text-hi); margin-bottom: 10px;
 }
-.explainer-body { font-size: 13px; color: var(--text-mid); line-height: 1.7; }
+.explainer-body { font-size: 13px; color: var(--text-mid); line-height: 1.75; }
 .rule-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 5px 0; border-top: 1px solid var(--border);
-    font-family: var(--font-mono); font-size: 11px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-top: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px;
 }
 .rule-cond { color: var(--text-mid); }
 
-/* ── Strategy description cards ── */
-.strat-card {
+/* ── Signal panel (below chart) ── */
+.signal-panel {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 18px 20px; margin-bottom: 12px;
+    border-radius: var(--r); padding: 20px 22px;
+    margin-top: 16px;
 }
-.strat-name { font-size: 14px; font-weight: 600; color: var(--text-hi); margin-bottom: 6px; }
-.strat-desc { font-size: 13px; color: var(--text-mid); line-height: 1.6; margin-bottom: 10px; }
-.strat-rules { font-family: var(--font-mono); font-size: 11px; color: var(--amber); }
-
-/* ── Signal feed ── */
+.signal-panel-title {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.8px;
+    text-transform: uppercase; color: var(--text-lo); margin-bottom: 14px;
+}
 .signal-row {
     display: flex; justify-content: space-between; align-items: center;
     padding: 7px 0; border-bottom: 1px solid var(--border);
     font-size: 13px;
 }
-.signal-name { color: var(--text-mid); font-family: var(--font-mono); font-size: 12px; }
+.signal-row:last-child { border-bottom: none; }
+.signal-name { color: var(--text-mid); font-family: var(--mono); font-size: 12px; }
 
-/* ── Empty / feature cards ── */
+/* ── Strategy how-it-works card ── */
+.how-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 20px 22px; margin-top: 16px;
+}
+.how-card-title {
+    font-size: 13px; font-weight: 600; color: var(--text-hi); margin-bottom: 10px;
+}
+.how-card-body { font-size: 13px; color: var(--text-mid); line-height: 1.75; }
+.how-card-rules {
+    font-family: var(--mono); font-size: 12px; color: var(--amber);
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+
+/* ── Strategy reference cards ── */
+.strat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 20px 22px; margin-bottom: 14px;
+}
+.strat-name { font-size: 14px; font-weight: 600; color: var(--text-hi); margin-bottom: 6px; }
+.strat-desc { font-size: 13px; color: var(--text-mid); line-height: 1.7; margin-bottom: 10px; }
+.strat-rules { font-family: var(--mono); font-size: 11px; color: var(--amber); }
+
+/* ── Empty state / feature cards ── */
 .feat-card {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); padding: 28px 24px; text-align: left;
+    border-radius: var(--r-lg); padding: 28px 24px;
 }
-.feat-card-title { font-size: 14px; font-weight: 600; color: var(--text-hi); margin-bottom: 8px; }
-.feat-card-desc  { font-size: 13px; color: var(--text-mid); line-height: 1.6; }
+.feat-title { font-size: 14px; font-weight: 600; color: var(--text-hi); margin-bottom: 8px; }
+.feat-desc  { font-size: 13px; color: var(--text-mid); line-height: 1.65; }
 
 /* ── Footer ── */
 .footer {
     text-align: center; padding: 24px 0 8px;
-    font-family: var(--font-mono); font-size: 11px; color: var(--text-lo);
-    border-top: 1px solid var(--border); margin-top: 48px;
+    font-family: var(--mono); font-size: 11px; color: var(--text-lo);
+    border-top: 1px solid var(--border); margin-top: 56px;
 }
 
 /* ── Streamlit widget overrides ── */
 div.stButton > button {
     background: var(--surface-2); color: var(--text-hi);
-    border: 1px solid var(--border-2); border-radius: var(--radius);
-    font-family: var(--font-body); font-size: 13px; font-weight: 500;
+    border: 1px solid var(--border-2); border-radius: var(--r);
+    font-family: var(--body); font-size: 13px; font-weight: 500;
     padding: 9px 18px; width: 100%; transition: border-color .15s, color .15s;
 }
 div.stButton > button:hover { border-color: var(--accent); color: var(--accent); }
-div.stButton > button[kind="primary"] {
-    background: var(--accent); color: #fff; border-color: var(--accent);
-}
-[data-testid="stDataFrame"] { border-radius: var(--radius) !important; }
+[data-testid="stDataFrame"] { border-radius: var(--r) !important; }
 .stTextInput input, .stSelectbox > div > div, .stMultiSelect > div {
-    background: var(--surface-2) !important; border-color: var(--border) !important;
-    border-radius: var(--radius) !important; color: var(--text-hi) !important;
-    font-family: var(--font-mono) !important; font-size: 13px !important;
+    background: var(--surface-2) !important;
+    border-color: var(--border) !important;
+    border-radius: var(--r) !important;
+    color: var(--text-hi) !important;
+    font-family: var(--mono) !important;
+    font-size: 13px !important;
 }
-.stCheckbox label { font-family: var(--font-mono) !important; font-size: 12px !important; color: var(--text-mid) !important; }
-.stExpander { border: 1px solid var(--border) !important; border-radius: var(--radius) !important; }
+.stCheckbox label {
+    font-family: var(--mono) !important;
+    font-size: 12px !important;
+    color: var(--text-mid) !important;
+}
+.stExpander {
+    border: 1px solid var(--border) !important;
+    border-radius: var(--r) !important;
+    background: var(--surface) !important;
+}
 label[data-testid="stWidgetLabel"] {
-    font-family: var(--font-mono) !important; font-size: 11px !important;
-    color: var(--text-lo) !important; text-transform: uppercase; letter-spacing: 0.5px;
+    font-family: var(--mono) !important;
+    font-size: 11px !important;
+    color: var(--text-lo) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ============================================================================
+# ===========================================================================
 # HELPER FUNCTIONS
-# ============================================================================
+# ===========================================================================
 
-def section(title: str) -> None:
-    st.markdown(f"<div class='section-title'>{title}</div>", unsafe_allow_html=True)
-
-
-def kpi_card(label: str, value: str, colour: str = "") -> str:
-    """Return HTML for a single KPI card."""
-    return (
-        f"<div class='kpi-card'>"
-        f"<div class='kpi-label'>{label}</div>"
-        f"<div class='kpi-val {colour}'>{value}</div>"
-        f"</div>"
-    )
+def sec(title: str) -> None:
+    st.markdown(f"<div class='sec-head'>{title}</div>", unsafe_allow_html=True)
 
 
 def chip(signal: str) -> str:
-    cls = {"BUY": "buy", "SELL": "sell"}.get(signal, "hold")
-    return f"<span class='chip {cls}'>{signal}</span>"
+    css = {"BUY": "buy", "SELL": "sell"}.get(signal, "hold")
+    return f"<span class='chip {css}'>{signal}</span>"
+
+
+def kpi(label: str, value: str, colour: str = "") -> None:
+    st.markdown(
+        f"<div class='kpi-card'>"
+        f"<div class='kpi-label'>{label}</div>"
+        f"<div class='kpi-val {colour}'>{value}</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def render_explainer(sig: str) -> None:
@@ -385,57 +437,59 @@ def render_explainer(sig: str) -> None:
         f"<span class='rule-cond'>{cond}</span>"
         f"{chip(action)}"
         f"</div>"
-        for cond, action, _ in edu["rules"]
+        for cond, action in edu["rules"]
     )
     st.markdown(
         f"<div class='explainer'>"
         f"<div class='explainer-name'>{edu['name']}</div>"
         f"<div class='explainer-body'>{edu['body']}</div>"
-        f"<div style='margin-top:12px;'>{rules_html}</div>"
+        f"<div style='margin-top:14px;'>{rules_html}</div>"
         f"</div>",
         unsafe_allow_html=True,
     )
 
 
-# ============================================================================
-# PAGE HEADING
-# ============================================================================
-updated_str = st.session_state.last_updated or "—"
+# ===========================================================================
+# PAGE HEADER  (perfectly centered)
+# ===========================================================================
+updated_str = st.session_state.last_updated or "not yet run"
 live_html = (
-    f"<span class='live-indicator'><span class='live-dot'></span>Live · refresh #{refresh_count}</span>"
+    f"<span class='live-badge'><span class='live-dot'></span>"
+    f"Live  ·  refresh #{refresh_count}</span>"
     if st.session_state.analysis_run else ""
 )
 
 st.markdown(
+    f"<div class='page-header'>"
     f"<div class='page-title'>Stock Quant Analysis Dashboard{live_html}</div>"
     f"<div class='page-desc'>"
     "This dashboard analyses stock market data using technical indicators and trading "
     "strategies, then runs a backtest to evaluate each strategy's historical performance."
     "</div>"
-    f"<div class='page-meta'>Last updated: {updated_str}</div>",
+    f"<div class='page-meta'>Last updated: {updated_str}</div>"
+    f"</div>",
     unsafe_allow_html=True,
 )
 
-st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+# ===========================================================================
+# CONTROL PANEL  —  single row, five columns, no sidebar
+# ===========================================================================
+st.markdown("<div class='ctrl-wrap'>", unsafe_allow_html=True)
 
-# ============================================================================
-# CONTROL PANEL
-# ============================================================================
-st.markdown("<div class='ctrl-panel'>", unsafe_allow_html=True)
+col1, col2, col3, col4, col5 = st.columns([2, 1.5, 3, 2, 1.5])
 
-col_sym, col_tf, col_strat, col_overlay, col_btn = st.columns([2, 1.2, 3, 1.5, 1.2])
-
-with col_sym:
-    symbol = st.text_input(
+with col1:
+    # Autocomplete via searchable selectbox
+    default_idx = TICKER_LIST.index(st.session_state.last_symbol) \
+        if st.session_state.last_symbol in TICKER_LIST else 0
+    symbol = st.selectbox(
         "Stock Symbol",
-        value=st.session_state.last_symbol,
-        placeholder="e.g. AAPL",
-        key="input_symbol",
-    ).upper().strip()
-    pills = "".join(f"<span class='ticker-pill'>{t}</span>" for t in POPULAR_TICKERS)
-    st.markdown(f"<div class='ticker-suggestions'>{pills}</div>", unsafe_allow_html=True)
+        options=TICKER_LIST,
+        index=default_idx,
+        key="sel_symbol",
+    )
 
-with col_tf:
+with col2:
     timeframe = st.selectbox(
         "Timeframe",
         options=["15m", "30m", "1h", "1d"],
@@ -444,7 +498,7 @@ with col_tf:
     )
     period = PERIOD_MAP[timeframe]
 
-with col_strat:
+with col3:
     selected_signals = st.multiselect(
         "Strategies",
         options=list(STRATEGY_LABELS.keys()),
@@ -453,21 +507,21 @@ with col_strat:
         key="sel_strategies",
     )
 
-with col_overlay:
+with col4:
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-    show_sma = st.checkbox("SMA 20", value=st.session_state.last_show_sma, key="cb_sma")
-    show_ema = st.checkbox("EMA 20", value=st.session_state.last_show_ema, key="cb_ema")
-    show_bb  = st.checkbox("Bollinger Bands", value=st.session_state.last_show_bb, key="cb_bb")
+    show_sma = st.checkbox("SMA 20",          value=st.session_state.last_show_sma, key="cb_sma")
+    show_ema = st.checkbox("EMA 20",          value=st.session_state.last_show_ema, key="cb_ema")
+    show_bb  = st.checkbox("Bollinger Bands", value=st.session_state.last_show_bb,  key="cb_bb")
 
-with col_btn:
+with col5:
     st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
     run_button = st.button("Run Analysis", key="btn_run")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-# ============================================================================
-# SAVE SETTINGS ON BUTTON CLICK
-# ============================================================================
+# ===========================================================================
+# SAVE SETTINGS ON CLICK
+# ===========================================================================
 if run_button:
     if not selected_signals:
         st.warning("Select at least one strategy before running analysis.")
@@ -481,9 +535,9 @@ if run_button:
     st.session_state.last_show_bb           = show_bb
     st.session_state.active_chart_strategy  = None
 
-# ============================================================================
-# ANALYSIS PIPELINE  — runs on click AND every auto-refresh
-# ============================================================================
+# ===========================================================================
+# ANALYSIS PIPELINE  —  runs on click AND every auto-refresh
+# ===========================================================================
 if st.session_state.analysis_run:
 
     _sym      = st.session_state.last_symbol
@@ -495,25 +549,24 @@ if st.session_state.analysis_run:
     _show_bb  = st.session_state.last_show_bb
     _keys     = [SIGNAL_KEY_MAP[s] for s in _sigs]
 
-    # ── Fetch ──────────────────────────────────────────────────────────────
-    with st.spinner(f"Fetching {_sym} data …"):
+    # ── Fetch ──
+    with st.spinner(f"Fetching {_sym} ({_tf} / {_period}) ..."):
         try:
             df_raw = fetch_stock_data(_sym, _tf, _period)
         except Exception as exc:
             st.error(f"Data fetch failed for {_sym}: {exc}")
             st.stop()
-
     if df_raw.empty:
         st.error(f"No data returned for {_sym}. Check the symbol and try again.")
         st.stop()
 
-    # ── Indicators + Signals ───────────────────────────────────────────────
-    with st.spinner("Calculating indicators and signals …"):
+    # ── Indicators + Signals ──
+    with st.spinner("Calculating indicators and signals ..."):
         df_ind  = calculate_indicators(df_raw)
         df_sigs = run_strategies(df_ind, _keys)
 
-    # ── Backtesting ────────────────────────────────────────────────────────
-    with st.spinner("Running backtests …"):
+    # ── Backtesting ──
+    with st.spinner("Running backtests ..."):
         bt_rows = []
         for col in _sigs:
             r = backtest(df_sigs, col)
@@ -535,32 +588,29 @@ if st.session_state.analysis_run:
 
     st.session_state.last_updated = datetime.now().strftime("%Y-%m-%d  %H:%M:%S")
 
-    # =========================================================================
-    # SECTION 1 — Performance Summary (KPI cards)
-    # =========================================================================
+    # =======================================================================
+    # SECTION 1  —  Performance Summary
+    # =======================================================================
+    st.markdown("---")
     best = comparison_df.iloc[0]
 
-    section(f"Performance Summary — {best['Strategy']} (best strategy)")
+    sec(f"Performance Summary  —  best strategy: {best['Strategy']}")
 
-    kpi_cols = st.columns(6)
-    kpi_items = [
-        ("Final Value",   f"${best['Final Value ($)']:,.2f}",    ""),
-        ("Total Return",  f"{best['Total Return (%)']:.2f}%",
-            "pos" if best["Total Return (%)"] >= 0 else "neg"),
-        ("Total Trades",  str(int(best["Total Trades"])),        ""),
-        ("Win Rate",      f"{best['Win Rate (%)']:.1f}%",        "pos"),
-        ("Max Drawdown",  f"{best['Max Drawdown (%)']:.2f}%",    "neg"),
-        ("Sharpe Ratio",  f"{best['Sharpe Ratio']:.4f}",
-            "pos" if best["Sharpe Ratio"] >= 0 else "neg"),
-    ]
-    for (label, value, cls), col in zip(kpi_items, kpi_cols):
-        with col:
-            st.markdown(kpi_card(label, value, cls), unsafe_allow_html=True)
+    k1, k2, k3, k4, k5, k6 = st.columns(6)
+    with k1: kpi("Final Value",  f"${best['Final Value ($)']:,.2f}", "")
+    with k2: kpi("Total Return", f"{best['Total Return (%)']:.2f}%",
+                 "pos" if best["Total Return (%)"] >= 0 else "neg")
+    with k3: kpi("Total Trades", str(int(best["Total Trades"])), "")
+    with k4: kpi("Win Rate",     f"{best['Win Rate (%)']:.1f}%",   "pos")
+    with k5: kpi("Max Drawdown", f"{best['Max Drawdown (%)']:.2f}%", "neg")
+    with k6: kpi("Sharpe Ratio", f"{best['Sharpe Ratio']:.4f}",
+                 "pos" if best["Sharpe Ratio"] >= 0 else "neg")
 
-    # =========================================================================
-    # SECTION 2 — Price Chart
-    # =========================================================================
-    section("Price Chart")
+    # =======================================================================
+    # SECTION 2  —  Price Chart  (full width)
+    # =======================================================================
+    st.markdown("---")
+    sec("Price Chart")
 
     # Resolve active chart strategy
     if (
@@ -569,112 +619,111 @@ if st.session_state.analysis_run:
     ):
         st.session_state.active_chart_strategy = _sigs[0]
 
-    # Strategy switcher buttons — text only, no emojis
+    # Strategy switcher — text buttons, no emojis
     if len(_sigs) > 1:
-        st.caption("Select strategy to display on chart:")
+        st.caption("Select strategy to display:")
         sw_cols = st.columns(len(_sigs))
         for i, sig in enumerate(_sigs):
             with sw_cols[i]:
-                is_active = sig == st.session_state.active_chart_strategy
-                label = f"[ {STRATEGY_LABELS[sig]} ]" if is_active else STRATEGY_LABELS[sig]
+                active = sig == st.session_state.active_chart_strategy
+                label  = f"[ {STRATEGY_LABELS[sig]} ]" if active else STRATEGY_LABELS[sig]
                 if st.button(label, key=f"sw_{sig}"):
                     st.session_state.active_chart_strategy = sig
 
     active_sig = st.session_state.active_chart_strategy
 
-    # Two-column layout: chart (left 68%) + info panel (right 32%)
-    chart_col, info_col = st.columns([17, 8])
+    # Full-width chart
+    fig = generate_chart(
+        df_sigs,
+        strategy_column=active_sig,
+        show_sma=_show_sma,
+        show_ema=_show_ema,
+        show_bb=_show_bb,
+        open_in_browser=False,
+    )
+    fig.update_layout(height=500)
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key=f"main_chart_{active_sig}_{refresh_count}",
+    )
 
-    with chart_col:
-        fig = generate_chart(
-            df_sigs,
-            strategy_column=active_sig,
-            show_sma=_show_sma,
-            show_ema=_show_ema,
-            show_bb=_show_bb,
-            open_in_browser=False,
-        )
-        fig.update_layout(height=500)
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-            key=f"main_chart_{active_sig}_{refresh_count}",
-        )
+    # =======================================================================
+    # SECTION 3  —  Strategy explanation + signals  (BELOW chart)
+    # =======================================================================
+    st.markdown("---")
+    sec("Strategy Explanation  &  Current Signals")
 
-    with info_col:
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    exp_col, sig_col = st.columns([3, 2])
 
-        # How this strategy works
+    with exp_col:
         info = strategies_info[SIGNAL_KEY_MAP[active_sig]]
-        with st.expander("How this strategy works", expanded=True):
-            st.markdown(
-                f"<p style='margin:0'>{info['description']}</p>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                f"<p style='font-family:var(--font-mono); font-size:12px; "
-                f"color:var(--amber); margin-top:10px;'>{info['rules']}</p>",
-                unsafe_allow_html=True,
-            )
-
-        # Signal legend
         st.markdown(
-            "<p style='font-family:var(--font-mono); font-size:11px; "
-            "color:var(--text-lo); margin:16px 0 8px;'>Signal legend</p>",
+            f"<div class='how-card'>"
+            f"<div class='how-card-title'>How {info['name']} works</div>"
+            f"<div class='how-card-body'>{info['description']}</div>"
+            f"<div class='how-card-rules'>{info['rules']}</div>"
+            f"</div>",
             unsafe_allow_html=True,
         )
-        st.markdown(
+
+    with sig_col:
+        # Signal legend
+        legend_html = (
             "<span class='chip buy'>BUY</span> &nbsp; "
             "<span class='chip sell'>SELL</span> &nbsp; "
-            "<span class='chip hold'>HOLD</span>",
-            unsafe_allow_html=True,
+            "<span class='chip hold'>HOLD</span>"
         )
-
         # Latest signal per strategy
+        rows_html = "".join(
+            f"<div class='signal-row'>"
+            f"<span class='signal-name'>{STRATEGY_LABELS[s]}</span>"
+            f"{chip(df_sigs[s].iloc[-1])}"
+            f"</div>"
+            for s in _sigs
+        )
         st.markdown(
-            "<p style='font-family:var(--font-mono); font-size:11px; "
-            "color:var(--text-lo); margin:20px 0 8px;'>Latest signals</p>",
+            f"<div class='signal-panel'>"
+            f"<div class='signal-panel-title'>Signal legend</div>"
+            f"{legend_html}"
+            f"<div class='signal-panel-title' style='margin-top:18px;'>Latest signals</div>"
+            f"{rows_html}"
+            f"</div>",
             unsafe_allow_html=True,
         )
-        for sig in _sigs:
-            latest = df_sigs[sig].iloc[-1]
-            st.markdown(
-                f"<div class='signal-row'>"
-                f"<span class='signal-name'>{STRATEGY_LABELS[sig]}</span>"
-                f"{chip(latest)}"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
 
-    # =========================================================================
-    # SECTION 3 — Indicator Explanations
-    # =========================================================================
-    section("Indicator Explanations")
+    # =======================================================================
+    # SECTION 4  —  Indicator Explanations
+    # =======================================================================
+    st.markdown("---")
+    sec("Indicator Explanations")
 
     st.markdown(
-        "<p style='margin-bottom:16px;'>"
-        "Each selected strategy is powered by one or more technical indicators. "
-        "The explanations below describe how each indicator is calculated and "
-        "what its signals mean."
+        "<p style='margin-bottom:18px;'>"
+        "Each strategy relies on one or more technical indicators. "
+        "The descriptions below explain the calculation method and signal logic "
+        "for every indicator selected above."
         "</p>",
         unsafe_allow_html=True,
     )
 
-    n_cols = min(len(_sigs), 2)
-    edu_cols = st.columns(n_cols)
+    n = min(len(_sigs), 2)
+    edu_cols = st.columns(n)
     for i, sig in enumerate(_sigs):
-        with edu_cols[i % n_cols]:
+        with edu_cols[i % n]:
             render_explainer(sig)
 
-    # =========================================================================
-    # SECTION 4 — Backtesting Results
-    # =========================================================================
-    section("Backtesting Results")
+    # =======================================================================
+    # SECTION 5  —  Backtesting Results
+    # =======================================================================
+    st.markdown("---")
+    sec("Backtesting Results")
 
     st.markdown(
-        f"<p>Simulation parameters: symbol <strong>{_sym}</strong>, "
+        f"<p>Simulation: symbol <strong>{_sym}</strong>, "
         f"timeframe <strong>{_tf}</strong>, period <strong>{_period}</strong>, "
-        f"initial capital <strong>$10,000</strong>.</p>",
+        f"initial capital <strong>$10,000</strong>. "
+        "Strategies are ranked by total return.</p>",
         unsafe_allow_html=True,
     )
 
@@ -704,20 +753,21 @@ if st.session_state.analysis_run:
         tl = row["_trade_log"]
         with st.expander(f"{row['Strategy']}  —  {len(tl)} trades", expanded=False):
             if tl.empty:
-                st.info("No trades were executed for this strategy.")
+                st.info("No trades executed for this strategy.")
             else:
                 tl_d = tl.copy()
                 tl_d["Date"] = tl_d["Date"].astype(str)
                 st.dataframe(tl_d, use_container_width=True)
 
-    # =========================================================================
-    # SECTION 5 — Strategy Reference
-    # =========================================================================
-    section("Strategy Reference")
+    # =======================================================================
+    # SECTION 6  —  Strategy Reference
+    # =======================================================================
+    st.markdown("---")
+    sec("Strategy Reference")
 
     st.markdown(
-        "<p style='margin-bottom:16px;'>"
-        "A summary of the logic applied by each selected strategy."
+        "<p style='margin-bottom:18px;'>"
+        "A concise description of the signal logic used by each selected strategy."
         "</p>",
         unsafe_allow_html=True,
     )
@@ -735,48 +785,46 @@ if st.session_state.analysis_run:
                 unsafe_allow_html=True,
             )
 
-# ============================================================================
-# EMPTY STATE — shown before any analysis has been run
-# ============================================================================
+# ===========================================================================
+# EMPTY STATE  —  before first run
+# ===========================================================================
 else:
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown("---")
     st.markdown(
-        "<p style='font-size:15px; color:var(--text-mid); text-align:center; "
+        "<p style='text-align:center; font-size:15px; color:var(--text-mid); "
         "padding:40px 0 12px;'>"
-        "Enter a stock symbol and select your strategies above, then click "
-        "<strong>Run Analysis</strong> to begin."
+        "Select a stock symbol and strategies in the controls above, "
+        "then click <strong>Run Analysis</strong> to begin."
         "</p>",
         unsafe_allow_html=True,
     )
 
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
     f1, f2, f3 = st.columns(3)
     for col, title, desc in [
         (f1, "Price Charts",
-         "Interactive candlestick charts with configurable overlays including "
-         "SMA, EMA, and Bollinger Bands. Buy and sell signals are plotted "
-         "directly on the chart."),
+         "Interactive candlestick charts with configurable overlays including SMA, "
+         "EMA, and Bollinger Bands. Buy and sell signals are plotted directly on the chart."),
         (f2, "Five Trading Strategies",
-         "Moving Average, RSI, MACD, Bollinger Bands, and EMA Crossover. "
-         "Each strategy is explained in plain language alongside its signals."),
+         "Moving Average, RSI, MACD, Bollinger Bands, and EMA Crossover. Each strategy "
+         "is explained in plain language alongside its signals."),
         (f3, "Backtesting Engine",
-         "Simulates trading from a $10,000 starting balance. Reports final "
-         "portfolio value, total return, win rate, maximum drawdown, and "
-         "annualised Sharpe ratio."),
+         "Simulates trading from a $10,000 starting balance. Reports final portfolio "
+         "value, total return, win rate, maximum drawdown, and annualised Sharpe ratio."),
     ]:
         with col:
             st.markdown(
                 f"<div class='feat-card'>"
-                f"<div class='feat-card-title'>{title}</div>"
-                f"<div class='feat-card-desc'>{desc}</div>"
+                f"<div class='feat-title'>{title}</div>"
+                f"<div class='feat-desc'>{desc}</div>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
 
-# ============================================================================
+# ===========================================================================
 # FOOTER
-# ============================================================================
+# ===========================================================================
 st.markdown(
     "<div class='footer'>"
     "Stock Quant Analysis Dashboard &nbsp;&middot;&nbsp; Final Year CS Project "
