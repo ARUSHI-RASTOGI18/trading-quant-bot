@@ -524,30 +524,29 @@ st.markdown("<div class='ctrl-wrap'>", unsafe_allow_html=True)
 col1, col2, col3, col4, col5 = st.columns([2, 1.5, 3, 2, 1.5])
 
 with col1:
-    # Step 1 — user types a query
+    # Single search input — label is the widget label, value drives suggestions.
+    # The selectbox below it shows live Yahoo Finance results as the user types.
     ticker_query = st.text_input(
         "Stock Symbol",
         value="",
-        placeholder="Type to search  e.g. Apple, TSLA, NVD ...",
+        placeholder="Search: AAPL, Tesla, NVD ...",
         key="ticker_query",
+        label_visibility="visible",
     )
+    suggestions  = fetch_ticker_suggestions(ticker_query)
 
-    # Step 2 — fetch live suggestions (cached) and let user pick one
-    suggestions = fetch_ticker_suggestions(ticker_query)
-
-    # Pre-select the last known symbol if it is in the suggestion list,
-    # otherwise default to position 0
+    # Keep the last known symbol selected when it is still in the list
     try:
         default_idx = suggestions.index(st.session_state.last_symbol)
     except ValueError:
         default_idx = 0
 
     symbol = st.selectbox(
-        "Select from results",
+        "Select ticker",
         options=suggestions,
         index=default_idx,
         key="sel_symbol",
-        help="Suggestions update as you type. Select the ticker you want to analyse.",
+        label_visibility="collapsed",   # hides duplicate label; search bar IS the label
     )
 
 with col2:

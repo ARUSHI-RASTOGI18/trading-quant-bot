@@ -30,21 +30,22 @@ def generate_chart(
     open_in_browser: bool = False,
 ) -> go.Figure:
     """
-    Generate an interactive Plotly chart with:
-        - Candlestick (OHLC)
-        - BUY / SELL signal markers for the selected strategy
-        - SMA_20 overlay  (optional)
-        - EMA_20 overlay  (optional)
-        - Bollinger Bands overlay  (optional)
-        - RSI sub-plot
-        - Volume sub-plot
+    Generate an interactive Plotly chart.
+
+    Layout is dynamic based on the active strategy:
+      - All strategies : Price (row 1) | RSI (row 2) | Volume (row 3)
+      - MACD strategy  : Price (row 1) | RSI (row 2) | MACD (row 3) | Volume (row 4)
+
+    When MACD_signal_trade is active the full MACD panel (line, signal line,
+    histogram) is shown in its own subplot so it never overlaps the RSI pane.
+    The RSI pane is always shown regardless of strategy.
 
     Args:
         df:               DataFrame with OHLCV + indicator + signal columns.
-        strategy_column:  Name of the signal column, e.g. "MA_signal".
-        show_sma:         Overlay SMA_20 line.
-        show_ema:         Overlay EMA_20 line.
-        show_bb:          Overlay Bollinger Bands.
+        strategy_column:  Signal column name, e.g. "MACD_signal_trade".
+        show_sma:         Overlay SMA_20 on price panel.
+        show_ema:         Overlay EMA_20 on price panel.
+        show_bb:          Overlay Bollinger Bands on price panel.
         open_in_browser:  Call fig.show() to open in the default browser.
 
     Returns:
@@ -59,18 +60,43 @@ def generate_chart(
     dates = df["Date"].astype(str)
 
     # -----------------------------------------------------------------------
-    # Figure layout: 3 rows — price | RSI | Volume
+    # Decide subplot layout based on active strategy
+    # MACD needs a dedicated 4th row; all others use 3 rows.
     # -----------------------------------------------------------------------
-    fig = make_subplots(
-        rows=3, cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.03,
-        row_heights=[0.60, 0.20, 0.20],
-        subplot_titles=(
+    show_macd_panel = (strategy_column == "MACD_signal_trade") and all(
+        c in df.columns for c in ("MACD", "MACD_signal", "MACD_hist")
+    )
+
+    if show_macd_panel:
+        row_heights     = [0.50, 0.18, 0.18, 0.14]
+        subplot_titles  = (
+            f"Price  ·  {strategy_column}",
+            "RSI (14)",
+            "MACD",
+            "Volume",
+        )
+        n_rows      = 4
+        volume_row  = 4
+        macd_row    = 3
+        rsi_row     = 2
+    else:
+        row_heights     = [0.60, 0.20, 0.20]
+        subplot_titles  = (
             f"Price  ·  {strategy_column}",
             "RSI (14)",
             "Volume",
-        ),
+        )
+        n_rows      = 3
+        volume_row  = 3
+        macd_row    = None
+        rsi_row     = 2
+
+    fig = make_subplots(
+        rows=n_rows, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.03,
+        row_heights=row_heights,
+        subplot_titles=subplot_titles,
     )
 
     # -----------------------------------------------------------------------
@@ -157,7 +183,7 @@ def generate_chart(
         fig.add_trace(
             go.Scatter(
                 x=dates[buy_mask],
-                y=df["Low"][buy_mask] * 0.995,   # slightly below the candle low
+                y=df["Low"][buy_mask] * 0.995,
                 mode="markers",
                 name="BUY",
                 marker=dict(
@@ -178,7 +204,7 @@ def generate_chart(
         fig.add_trace(
             go.Scatter(
                 x=dates[sell_mask],
-                y=df["High"][sell_mask] * 1.005,  # slightly above the candle high
+                y=df["High"][sell_mask] * 1.005,
                 mode="markers",
                 name="SELL",
                 marker=dict(
@@ -192,7 +218,7 @@ def generate_chart(
         )
 
     # -----------------------------------------------------------------------
-    # Row 2 — RSI subplot
+    # Row rsi_row — RSI subplot (always shown)
     # -----------------------------------------------------------------------
     if "RSI_14" in df.columns:
         fig.add_trace(
@@ -203,7 +229,7 @@ def generate_chart(
                 name="RSI 14",
                 line=dict(color="#F39C12", width=1.5),
             ),
-            row=2, col=1,
+            row=rsi_row, col=1,
         )
         # Overbought / oversold reference lines
         for level, label, colour in [
@@ -214,13 +240,63 @@ def generate_chart(
                 y=level,
                 line_dash="dash",
                 line_color=colour,
-                row=2, col=1,
+                row=rsi_row, col=1,
                 annotation_text=label,
                 annotation_position="right",
             )
+        fig.update_yaxes(range=[0, 100], row=rsi_row, col=1)
 
     # -----------------------------------------------------------------------
-    # Row 3 — Volume bars
+    # Row macd_row — MACD subplot (only when MACD strategy is active)
+    # -----------------------------------------------------------------------
+    if show_macd_panel:
+        # MACD line
+        fig.add_trace(
+            go.Scatter(
+                x=dates,
+                y=df["MACD"],
+                mode="lines",
+                name="MACD",
+                line=dict(color="#3B9EFF", width=1.5),
+            ),
+            row=macd_row, col=1,
+        )
+        # Signal line
+        fig.add_trace(
+            go.Scatter(
+                x=dates,
+                y=df["MACD_signal"],
+                mode="lines",
+                name="Signal",
+                line=dict(color="#F5A623", width=1.5, dash="dash"),
+            ),
+            row=macd_row, col=1,
+        )
+        # Histogram bars — green when positive, red when negative
+        hist_colours = [
+            "#2ECC71" if v >= 0 else "#E74C3C"
+            for v in df["MACD_hist"].fillna(0)
+        ]
+        fig.add_trace(
+            go.Bar(
+                x=dates,
+                y=df["MACD_hist"],
+                name="Histogram",
+                marker_color=hist_colours,
+                opacity=0.6,
+            ),
+            row=macd_row, col=1,
+        )
+        # Zero reference line
+        fig.add_hline(
+            y=0,
+            line_dash="dot",
+            line_color="rgba(255,255,255,0.15)",
+            row=macd_row, col=1,
+        )
+
+    # -----------------------------------------------------------------------
+    # Volume bars (last row)
     # -----------------------------------------------------------------------
     volume_colours = [
         COLOUR_BUY if c >= o else COLOUR_SELL
@@ -234,12 +310,14 @@ def generate_chart(
             marker_color=volume_colours,
             opacity=0.6,
         ),
-        row=3, col=1,
+        row=volume_row, col=1,
     )
 
     # -----------------------------------------------------------------------
     # Layout styling
     # -----------------------------------------------------------------------
+    chart_height = 950 if show_macd_panel else 850
+
     fig.update_layout(
         title=dict(
             text=f"<b>Stock Quant Analysis Dashboard</b>  ·  {strategy_column}",
@@ -260,11 +338,11 @@ def generate_chart(
         ),
         hovermode="x unified",
         xaxis_rangeslider_visible=False,
-        height=850,
+        height=chart_height,
         margin=dict(l=50, r=30, t=80, b=40),
+        bargap=0.1,
     )
 
-    # Axis styling
     axis_style = dict(
         gridcolor="#21262D",
         zerolinecolor="#21262D",
@@ -272,9 +350,6 @@ def generate_chart(
     )
     fig.update_xaxes(**axis_style)
     fig.update_yaxes(**axis_style)
-
-    # RSI y-axis range
-    fig.update_yaxes(range=[0, 100], row=2, col=1)
 
     print("[chart_generator] Chart built successfully.")
 
