@@ -519,8 +519,6 @@ st.markdown(
 # ===========================================================================
 # CONTROL PANEL  —  single row, five columns, no sidebar
 # ===========================================================================
-st.markdown("<div class='ctrl-wrap'>", unsafe_allow_html=True)
-
 col1, col2, col3, col4, col5 = st.columns([2, 1.5, 3, 2, 1.5])
 
 with col1:
@@ -576,8 +574,6 @@ with col4:
 with col5:
     st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
     run_button = st.button("Run Analysis", key="btn_run")
-
-st.markdown("</div>", unsafe_allow_html=True)
 
 # ===========================================================================
 # SAVE SETTINGS ON CLICK
