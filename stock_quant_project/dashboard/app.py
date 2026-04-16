@@ -412,6 +412,47 @@ hr { border: none !important; border-top: 1px solid var(--border) !important; ma
     border-top: 1px solid var(--border); margin-top: 56px;
 }
 
+/* ── Strategy flashcards ── */
+.flashcard-section {
+    margin: 0 0 24px;
+}
+.flashcard-section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--text-lo);
+    margin-bottom: 14px;
+}
+.flashcard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--accent);
+    border-radius: var(--r);
+    padding: 16px 18px;
+    height: 100%;
+}
+.fc-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-hi);
+    margin-bottom: 6px;
+}
+.fc-desc {
+    font-size: 12px;
+    color: var(--text-mid);
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+.fc-rules {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-lo);
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    line-height: 1.8;
+}
+
 /* ── Streamlit widget overrides ── */
 div.stButton > button {
     background: var(--surface-2); color: var(--text-hi);
@@ -515,6 +556,73 @@ st.markdown(
     f"</div>",
     unsafe_allow_html=True,
 )
+
+# ===========================================================================
+# STRATEGY FLASHCARDS  —  education panel shown before controls
+# ===========================================================================
+FLASHCARDS = [
+    {
+        "name":  "Moving Average",
+        "desc":  "Detects trend direction by comparing two average price lines over time.",
+        "rules": "SMA 20 > EMA 20  →  BUY\nSMA 20 < EMA 20  →  SELL",
+    },
+    {
+        "name":  "RSI",
+        "desc":  "Measures whether a stock is overbought or oversold on a 0–100 scale.",
+        "rules": "RSI < 30  →  BUY  (oversold)\nRSI > 70  →  SELL  (overbought)",
+    },
+    {
+        "name":  "MACD",
+        "desc":  "Detects momentum changes by tracking two exponential moving averages.",
+        "rules": "MACD crosses above signal  →  BUY\nMACD crosses below signal  →  SELL",
+    },
+    {
+        "name":  "Bollinger Bands",
+        "desc":  "Shows price volatility. Wide bands mean high volatility; narrow means low.",
+        "rules": "Price near lower band  →  BUY\nPrice near upper band  →  SELL",
+    },
+    {
+        "name":  "EMA Crossover",
+        "desc":  "Compares a fast and a slow exponential average to spot momentum shifts.",
+        "rules": "EMA 12 > EMA 26  →  BUY\nEMA 12 < EMA 26  →  SELL",
+    },
+]
+
+st.markdown(
+    "<div class='flashcard-section-label'>Strategy Guide — understand each strategy before running analysis</div>",
+    unsafe_allow_html=True,
+)
+
+# Row 1 — first 3 cards
+fc_row1 = st.columns(3)
+for i in range(3):
+    with fc_row1[i]:
+        card = FLASHCARDS[i]
+        st.markdown(
+            f"<div class='flashcard'>"
+            f"<div class='fc-name'>{card['name']}</div>"
+            f"<div class='fc-desc'>{card['desc']}</div>"
+            f"<div class='fc-rules'>{card['rules'].replace(chr(10), '<br>')}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+# Row 2 — last 2 cards (centred via empty padding columns)
+_, fc_c1, fc_c2, _ = st.columns([0.5, 1, 1, 0.5])
+for col, card in zip([fc_c1, fc_c2], FLASHCARDS[3:]):
+    with col:
+        st.markdown(
+            f"<div class='flashcard'>"
+            f"<div class='fc-name'>{card['name']}</div>"
+            f"<div class='fc-desc'>{card['desc']}</div>"
+            f"<div class='fc-rules'>{card['rules'].replace(chr(10), '<br>')}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 # ===========================================================================
 # CONTROL PANEL  —  single row, five columns, no sidebar
@@ -705,72 +813,7 @@ if st.session_state.analysis_run:
     )
 
     # =======================================================================
-    # SECTION 3  —  Strategy explanation + signals  (BELOW chart)
-    # =======================================================================
-    st.markdown("---")
-    sec("Strategy Explanation  &  Current Signals")
-
-    exp_col, sig_col = st.columns([3, 2])
-
-    with exp_col:
-        info = strategies_info[SIGNAL_KEY_MAP[active_sig]]
-        st.markdown(
-            f"<div class='how-card'>"
-            f"<div class='how-card-title'>How {info['name']} works</div>"
-            f"<div class='how-card-body'>{info['description']}</div>"
-            f"<div class='how-card-rules'>{info['rules']}</div>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-
-    with sig_col:
-        # Signal legend
-        legend_html = (
-            "<span class='chip buy'>BUY</span> &nbsp; "
-            "<span class='chip sell'>SELL</span> &nbsp; "
-            "<span class='chip hold'>HOLD</span>"
-        )
-        # Latest signal per strategy
-        rows_html = "".join(
-            f"<div class='signal-row'>"
-            f"<span class='signal-name'>{STRATEGY_LABELS[s]}</span>"
-            f"{chip(df_sigs[s].iloc[-1])}"
-            f"</div>"
-            for s in _sigs
-        )
-        st.markdown(
-            f"<div class='signal-panel'>"
-            f"<div class='signal-panel-title'>Signal legend</div>"
-            f"{legend_html}"
-            f"<div class='signal-panel-title' style='margin-top:18px;'>Latest signals</div>"
-            f"{rows_html}"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-
-    # =======================================================================
-    # SECTION 4  —  Indicator Explanations
-    # =======================================================================
-    st.markdown("---")
-    sec("Indicator Explanations")
-
-    st.markdown(
-        "<p style='margin-bottom:18px;'>"
-        "Each strategy relies on one or more technical indicators. "
-        "The descriptions below explain the calculation method and signal logic "
-        "for every indicator selected above."
-        "</p>",
-        unsafe_allow_html=True,
-    )
-
-    n = min(len(_sigs), 2)
-    edu_cols = st.columns(n)
-    for i, sig in enumerate(_sigs):
-        with edu_cols[i % n]:
-            render_explainer(sig)
-
-    # =======================================================================
-    # SECTION 5  —  Backtesting Results
+    # SECTION 3  —  Backtesting Results
     # =======================================================================
     st.markdown("---")
     sec("Backtesting Results")
@@ -816,7 +859,7 @@ if st.session_state.analysis_run:
                 st.dataframe(tl_d, use_container_width=True)
 
     # =======================================================================
-    # SECTION 6  —  Strategy Reference
+    # SECTION 5  —  Strategy Reference
     # =======================================================================
     st.markdown("---")
     sec("Strategy Reference")
