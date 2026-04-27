@@ -54,6 +54,7 @@ _DEFAULTS = {
     "last_show_bb":          True,
     "last_updated":          None,
     "active_chart_strategy": None,
+    "market":                "US Market",
 }
 for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
@@ -80,10 +81,27 @@ SIGNAL_KEY_MAP = {
     "EMA_signal":        "ema",
 }
 
-# Fallback tickers shown before the user types anything
+# Fallback tickers shown before the user types anything (US Market)
 FALLBACK_TICKERS = [
     "AAPL", "TSLA", "NVDA", "MSFT", "GOOGL",
     "AMZN", "META", "NFLX", "AMD",  "INTC",
+]
+
+# NIFTY 50 constituent tickers (Indian Market)
+NIFTY50_TICKERS = [
+    "RELIANCE.NS",  "TCS.NS",       "HDFCBANK.NS",  "INFY.NS",
+    "ICICIBANK.NS", "HINDUNILVR.NS","ITC.NS",        "SBIN.NS",
+    "BHARTIARTL.NS","KOTAKBANK.NS", "LT.NS",         "ASIANPAINT.NS",
+    "AXISBANK.NS",  "MARUTI.NS",    "TITAN.NS",      "BAJFINANCE.NS",
+    "ULTRACEMCO.NS","NTPC.NS",      "NESTLEIND.NS",  "POWERGRID.NS",
+    "TATASTEEL.NS", "HCLTECH.NS",   "WIPRO.NS",      "SUNPHARMA.NS",
+    "TECHM.NS",     "ADANIENT.NS",  "ADANIPORTS.NS", "JSWSTEEL.NS",
+    "ONGC.NS",      "COALINDIA.NS", "DRREDDY.NS",    "EICHERMOT.NS",
+    "GRASIM.NS",    "HINDALCO.NS",  "INDUSINDBK.NS", "BAJAJFINSV.NS",
+    "BRITANNIA.NS", "CIPLA.NS",     "DIVISLAB.NS",   "HEROMOTOCO.NS",
+    "M&M.NS",       "SHREECEM.NS",  "TATACONSUM.NS", "UPL.NS",
+    "VEDL.NS",      "BPCL.NS",      "APOLLOHOSP.NS", "DABUR.NS",
+    "PIDILITIND.NS",
 ]
 
 # ---------------------------------------------------------------------------
@@ -94,20 +112,35 @@ _YF_HEADERS    = {"User-Agent": "Mozilla/5.0"}
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def fetch_ticker_suggestions(query: str) -> list[str]:
+def fetch_ticker_suggestions(query: str, market: str = "US Market") -> list[str]:
     """
-    Query Yahoo Finance search API and return up to 10 equity ticker symbols.
+    Return ticker suggestions based on the selected market.
 
-    Results are cached for 60 seconds so rapid keystrokes don't flood the API.
-    Falls back to an empty list on any network or parse error.
+    Indian Market (NIFTY 50):
+        Filters NIFTY50_TICKERS client-side — no network call needed.
+        Empty query returns the full list; otherwise filters by substring match.
+
+    US Market:
+        Queries the Yahoo Finance search API and returns up to 10 results.
+        Results are cached for 60 seconds to avoid flooding the API.
+        Falls back to FALLBACK_TICKERS on any network or parse error.
 
     Args:
-        query: The partial ticker or company name typed by the user.
+        query:  Partial ticker or company name typed by the user.
+        market: "US Market" or "Indian Market (NIFTY 50)".
 
     Returns:
-        List of ticker symbol strings, e.g. ["TSLA", "TSM", "TSLX"].
+        List of ticker symbol strings.
     """
     query = query.strip()
+
+    # ── Indian Market — pure client-side filter, no HTTP request ──────────
+    if market == "Indian Market (NIFTY 50)":
+        if not query:
+            return NIFTY50_TICKERS
+        return [t for t in NIFTY50_TICKERS if query.upper() in t] or NIFTY50_TICKERS
+
+    # ── US Market — Yahoo Finance live search ─────────────────────────────
     if not query:
         return FALLBACK_TICKERS
 
@@ -125,14 +158,12 @@ def fetch_ticker_suggestions(query: str) -> list[str]:
         symbols = [
             q["symbol"]
             for q in quotes
-            if q.get("symbol")                           # must have a symbol
-            and q.get("quoteType", "") in              # only equities + ETFs
-                ("EQUITY", "ETF", "MUTUALFUND", "")
-            and "." not in q["symbol"]                   # skip non-US (e.g. BP.L)
+            if q.get("symbol")
+            and q.get("quoteType", "") in ("EQUITY", "ETF", "MUTUALFUND", "")
+            and "." not in q["symbol"]          # skip non-US exchanges (e.g. BP.L)
         ]
         return symbols[:10] if symbols else FALLBACK_TICKERS
     except Exception:
-        # Network error, rate-limit, or unexpected JSON — silently fall back
         return FALLBACK_TICKERS
 
 INDICATOR_EXPLAINERS = {
@@ -625,9 +656,19 @@ for col, card in zip([fc_c1, fc_c2], FLASHCARDS[3:]):
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 # ===========================================================================
-# CONTROL PANEL  —  single row, five columns, no sidebar
+# CONTROL PANEL  —  single row, six columns, no sidebar
 # ===========================================================================
-col1, col2, col3, col4, col5 = st.columns([2, 1.5, 3, 2, 1.5])
+col0, col1, col2, col3, col4, col5 = st.columns([1.8, 2, 1.5, 3, 2, 1.5])
+
+with col0:
+    market = st.selectbox(
+        "Market",
+        options=["US Market", "Indian Market (NIFTY 50)"],
+        index=["US Market", "Indian Market (NIFTY 50)"].index(
+            st.session_state.market
+        ),
+        key="market_selector",
+    )
 
 with col1:
     # Single search input — label is the widget label, value drives suggestions.
@@ -635,11 +676,12 @@ with col1:
     ticker_query = st.text_input(
         "Stock Symbol",
         value="",
-        placeholder="Search: AAPL, Tesla, NVD ...",
+        placeholder="Search: AAPL, Tesla, NVD ..." if market == "US Market"
+                    else "Search: RELIANCE, TCS, INFY ...",
         key="ticker_query",
         label_visibility="visible",
     )
-    suggestions  = fetch_ticker_suggestions(ticker_query)
+    suggestions  = fetch_ticker_suggestions(ticker_query, market)
 
     # Keep the last known symbol selected when it is still in the list
     try:
@@ -691,6 +733,7 @@ if run_button:
         st.warning("Select at least one strategy before running analysis.")
         st.stop()
     st.session_state.analysis_run           = True
+    st.session_state.market                 = market
     st.session_state.last_symbol            = symbol
     st.session_state.last_timeframe         = timeframe
     st.session_state.last_signals           = selected_signals
