@@ -1,24 +1,51 @@
+"""
+dashboard/chart_generator.py
+Generates a clean, beginner-friendly Plotly chart.
+
+Layout  (2 rows, shared x-axis):
+  Row 1  Price   — candlestick · optional SMA 20 · optional EMA 20
+                   BUY markers (green triangle-up)
+                   SELL markers (red triangle-down)
+  Row 2  RSI 14  — RSI line · overbought 70 · oversold 30
+
+Intentionally omitted (data still computed by backend, just not drawn):
+  - Volume subplot and bars
+  - Bollinger Bands (upper line, lower line, shaded fill)
+  - MACD subplot
+  - "OHLC" / "Volume" / "BB Upper" / "BB Lower" legend entries
+
+Only the visualisation layer is defined here.
+Data fetching, indicator calculation, strategy signals, and backtesting
+are handled in separate backend modules and are not touched.
+"""
+
+import os
+import sys
+
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import sys
-import os
 
 
 # ---------------------------------------------------------------------------
-# Colour palette
+# Colour tokens
 # ---------------------------------------------------------------------------
-COLOUR_SMA      = "#F5A623"   # amber
-COLOUR_EMA      = "#4A90D9"   # blue
-COLOUR_BB_UPPER = "#9B59B6"   # purple
-COLOUR_BB_LOWER = "#9B59B6"   # purple
-COLOUR_BB_FILL  = "rgba(155, 89, 182, 0.08)"
-COLOUR_BUY      = "#2ECC71"   # green
-COLOUR_SELL     = "#E74C3C"   # red
+_GREEN   = "#2ECC71"   # BUY markers, up candles
+_RED     = "#E74C3C"   # SELL markers, down candles
+_AMBER   = "#F5A623"   # SMA 20 line
+_BLUE    = "#4A90D9"   # EMA 20 line
+_ORANGE  = "#F39C12"   # RSI line
+
+# Background / grid
+_BG      = "#0F1117"
+_GRID    = "rgba(255, 255, 255, 0.04)"
+_ZERO    = "rgba(255, 255, 255, 0.06)"
+_TEXT    = "#8B949E"
+_TEXT_HI = "#C9D1D9"
 
 
 # ---------------------------------------------------------------------------
-# Main chart function
+# Public API
 # ---------------------------------------------------------------------------
 
 def generate_chart(
@@ -26,82 +53,74 @@ def generate_chart(
     strategy_column: str,
     show_sma: bool = True,
     show_ema: bool = True,
-    show_bb: bool = True,
+    show_bb: bool = True,       # kept for caller compatibility — not drawn
     open_in_browser: bool = False,
 ) -> go.Figure:
     """
-    Generate an interactive Plotly chart.
+    Build and return a simplified Plotly figure for the given strategy signal.
 
-    Layout is dynamic based on the active strategy:
-      - All strategies : Price (row 1) | RSI (row 2) | Volume (row 3)
-      - MACD strategy  : Price (row 1) | RSI (row 2) | MACD (row 3) | Volume (row 4)
+    What is drawn
+    -------------
+    Price panel (row 1):
+        Candlestick chart (green up / red down)
+        SMA 20 line  — amber dotted   (when show_sma=True and column present)
+        EMA 20 line  — blue dashed    (when show_ema=True and column present)
+        BUY  signal  — green triangle-up    placed just below each candle low
+        SELL signal  — red   triangle-down  placed just above each candle high
 
-    When MACD_signal_trade is active the full MACD panel (line, signal line,
-    histogram) is shown in its own subplot so it never overlaps the RSI pane.
-    The RSI pane is always shown regardless of strategy.
+    RSI panel (row 2):
+        RSI 14 line
+        Overbought reference at 70  (dashed red)
+        Oversold   reference at 30  (dashed green)
+
+    What is NOT drawn
+    -----------------
+        Volume bars / subplot
+        Bollinger Bands  (show_bb is accepted but silently ignored)
+        MACD subplot
+        Excess legend entries (Volume, BB Upper, BB Lower, OHLC)
 
     Args:
-        df:               DataFrame with OHLCV + indicator + signal columns.
-        strategy_column:  Signal column name, e.g. "MACD_signal_trade".
-        show_sma:         Overlay SMA_20 on price panel.
-        show_ema:         Overlay EMA_20 on price panel.
-        show_bb:          Overlay Bollinger Bands on price panel.
-        open_in_browser:  Call fig.show() to open in the default browser.
+        df:               DataFrame produced by calculate_indicators() and
+                          run_strategies().  Must contain Date, Open, High,
+                          Low, Close and the named strategy_column.
+        strategy_column:  Signal column, e.g. "MA_signal".
+        show_sma:         Draw SMA_20 overlay when True.
+        show_ema:         Draw EMA_20 overlay when True.
+        show_bb:          Accepted for API compatibility; Bollinger Bands
+                          are not rendered regardless of this value.
+        open_in_browser:  If True, call fig.show() before returning.
 
     Returns:
         plotly.graph_objects.Figure
     """
     if strategy_column not in df.columns:
-        raise ValueError(f"Signal column '{strategy_column}' not found in DataFrame.")
+        raise ValueError(
+            f"[chart_generator] Signal column '{strategy_column}' not found."
+        )
 
-    print(f"[chart_generator] Building chart for strategy: {strategy_column}")
+    print(f"[chart_generator] Building chart — strategy: {strategy_column}")
 
-    # Normalise Date column to plain strings for clean x-axis labels
+    # Convert dates to plain strings once — avoids timezone label noise
     dates = df["Date"].astype(str)
 
     # -----------------------------------------------------------------------
-    # Decide subplot layout based on active strategy
-    # MACD needs a dedicated 4th row; all others use 3 rows.
+    # Figure skeleton — 2 rows, shared x-axis
     # -----------------------------------------------------------------------
-    show_macd_panel = (strategy_column == "MACD_signal_trade") and all(
-        c in df.columns for c in ("MACD", "MACD_signal", "MACD_hist")
-    )
-
-    if show_macd_panel:
-        row_heights     = [0.50, 0.18, 0.18, 0.14]
-        subplot_titles  = (
-            f"Price  ·  {strategy_column}",
-            "RSI (14)",
-            "MACD",
-            "Volume",
-        )
-        n_rows      = 4
-        volume_row  = 4
-        macd_row    = 3
-        rsi_row     = 2
-    else:
-        row_heights     = [0.60, 0.20, 0.20]
-        subplot_titles  = (
-            f"Price  ·  {strategy_column}",
-            "RSI (14)",
-            "Volume",
-        )
-        n_rows      = 3
-        volume_row  = 3
-        macd_row    = None
-        rsi_row     = 2
-
     fig = make_subplots(
-        rows=n_rows, cols=1,
+        rows=2,
+        cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.03,
-        row_heights=row_heights,
-        subplot_titles=subplot_titles,
+        vertical_spacing=0.06,
+        row_heights=[0.72, 0.28],
+        subplot_titles=["Price", "RSI  (14)"],
     )
 
-    # -----------------------------------------------------------------------
-    # Row 1a — Candlestick
-    # -----------------------------------------------------------------------
+    # =======================================================================
+    # ROW 1  —  PRICE
+    # =======================================================================
+
+    # Candlestick ─────────────────────────────────────────────────────────
     fig.add_trace(
         go.Candlestick(
             x=dates,
@@ -109,18 +128,17 @@ def generate_chart(
             high=df["High"],
             low=df["Low"],
             close=df["Close"],
-            name="OHLC",
-            increasing_line_color="#2ECC71",
-            decreasing_line_color="#E74C3C",
-            increasing_fillcolor="#2ECC71",
-            decreasing_fillcolor="#E74C3C",
+            name="Price",
+            increasing_line_color=_GREEN,
+            decreasing_line_color=_RED,
+            increasing_fillcolor=_GREEN,
+            decreasing_fillcolor=_RED,
+            showlegend=True,
         ),
         row=1, col=1,
     )
 
-    # -----------------------------------------------------------------------
-    # Row 1b — SMA_20 overlay
-    # -----------------------------------------------------------------------
+    # SMA 20 ──────────────────────────────────────────────────────────────
     if show_sma and "SMA_20" in df.columns:
         fig.add_trace(
             go.Scatter(
@@ -128,14 +146,13 @@ def generate_chart(
                 y=df["SMA_20"],
                 mode="lines",
                 name="SMA 20",
-                line=dict(color=COLOUR_SMA, width=1.5, dash="dot"),
+                line=dict(color=_AMBER, width=1.6, dash="dot"),
+                showlegend=True,
             ),
             row=1, col=1,
         )
 
-    # -----------------------------------------------------------------------
-    # Row 1c — EMA_20 overlay
-    # -----------------------------------------------------------------------
+    # EMA 20 ──────────────────────────────────────────────────────────────
     if show_ema and "EMA_20" in df.columns:
         fig.add_trace(
             go.Scatter(
@@ -143,213 +160,150 @@ def generate_chart(
                 y=df["EMA_20"],
                 mode="lines",
                 name="EMA 20",
-                line=dict(color=COLOUR_EMA, width=1.5, dash="dash"),
+                line=dict(color=_BLUE, width=1.6, dash="dash"),
+                showlegend=True,
             ),
             row=1, col=1,
         )
 
-    # -----------------------------------------------------------------------
-    # Row 1d — Bollinger Bands with filled region
-    # -----------------------------------------------------------------------
-    if show_bb and "BB_upper" in df.columns and "BB_lower" in df.columns:
-        fig.add_trace(
-            go.Scatter(
-                x=dates,
-                y=df["BB_upper"],
-                mode="lines",
-                name="BB Upper",
-                line=dict(color=COLOUR_BB_UPPER, width=1, dash="dot"),
-            ),
-            row=1, col=1,
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=dates,
-                y=df["BB_lower"],
-                mode="lines",
-                name="BB Lower",
-                line=dict(color=COLOUR_BB_LOWER, width=1, dash="dot"),
-                fill="tonexty",
-                fillcolor=COLOUR_BB_FILL,
-            ),
-            row=1, col=1,
-        )
-
-    # -----------------------------------------------------------------------
-    # Row 1e — BUY markers (green triangle-up)
-    # -----------------------------------------------------------------------
+    # BUY markers — green triangle-up, just below each candle low ─────────
     buy_mask = df[strategy_column] == "BUY"
     if buy_mask.any():
         fig.add_trace(
             go.Scatter(
                 x=dates[buy_mask],
-                y=df["Low"][buy_mask] * 0.995,
+                y=df["Low"][buy_mask] * 0.993,
                 mode="markers",
                 name="BUY",
                 marker=dict(
                     symbol="triangle-up",
-                    color=COLOUR_BUY,
-                    size=12,
+                    color=_GREEN,
+                    size=14,
                     line=dict(color="white", width=0.8),
                 ),
+                showlegend=True,
             ),
             row=1, col=1,
         )
 
-    # -----------------------------------------------------------------------
-    # Row 1f — SELL markers (red triangle-down)
-    # -----------------------------------------------------------------------
+    # SELL markers — red triangle-down, just above each candle high ───────
     sell_mask = df[strategy_column].str.startswith("SELL")
     if sell_mask.any():
         fig.add_trace(
             go.Scatter(
                 x=dates[sell_mask],
-                y=df["High"][sell_mask] * 1.005,
+                y=df["High"][sell_mask] * 1.007,
                 mode="markers",
                 name="SELL",
                 marker=dict(
                     symbol="triangle-down",
-                    color=COLOUR_SELL,
-                    size=12,
+                    color=_RED,
+                    size=14,
                     line=dict(color="white", width=0.8),
                 ),
+                showlegend=True,
             ),
             row=1, col=1,
         )
 
-    # -----------------------------------------------------------------------
-    # Row rsi_row — RSI subplot (always shown)
-    # -----------------------------------------------------------------------
+    # =======================================================================
+    # ROW 2  —  RSI
+    # =======================================================================
     if "RSI_14" in df.columns:
+
+        # RSI line ────────────────────────────────────────────────────────
         fig.add_trace(
             go.Scatter(
                 x=dates,
                 y=df["RSI_14"],
                 mode="lines",
                 name="RSI 14",
-                line=dict(color="#F39C12", width=1.5),
+                line=dict(color=_ORANGE, width=1.6),
+                showlegend=False,    # panel title makes it self-evident
             ),
-            row=rsi_row, col=1,
+            row=2, col=1,
         )
-        # Overbought / oversold reference lines
-        for level, label, colour in [
-            (70, "Overbought", "rgba(231,76,60,0.5)"),
-            (30, "Oversold",   "rgba(46,204,113,0.5)"),
-        ]:
-            fig.add_hline(
-                y=level,
-                line_dash="dash",
-                line_color=colour,
-                row=rsi_row, col=1,
-                annotation_text=label,
-                annotation_position="right",
-            )
-        fig.update_yaxes(range=[0, 100], row=rsi_row, col=1)
 
-    # -----------------------------------------------------------------------
-    # Row macd_row — MACD subplot (only when MACD strategy is active)
-    # -----------------------------------------------------------------------
-    if show_macd_panel:
-        # MACD line
-        fig.add_trace(
-            go.Scatter(
-                x=dates,
-                y=df["MACD"],
-                mode="lines",
-                name="MACD",
-                line=dict(color="#3B9EFF", width=1.5),
-            ),
-            row=macd_row, col=1,
-        )
-        # Signal line
-        fig.add_trace(
-            go.Scatter(
-                x=dates,
-                y=df["MACD_signal"],
-                mode="lines",
-                name="Signal",
-                line=dict(color="#F5A623", width=1.5, dash="dash"),
-            ),
-            row=macd_row, col=1,
-        )
-        # Histogram bars — green when positive, red when negative
-        hist_colours = [
-            "#2ECC71" if v >= 0 else "#E74C3C"
-            for v in df["MACD_hist"].fillna(0)
-        ]
-        fig.add_trace(
-            go.Bar(
-                x=dates,
-                y=df["MACD_hist"],
-                name="Histogram",
-                marker_color=hist_colours,
-                opacity=0.6,
-            ),
-            row=macd_row, col=1,
-        )
-        # Zero reference line
+        # Overbought — 70 ─────────────────────────────────────────────────
         fig.add_hline(
-            y=0,
-            line_dash="dot",
-            line_color="rgba(255,255,255,0.15)",
-            row=macd_row, col=1,
+            y=70,
+            line_dash="dash",
+            line_color="rgba(231, 76, 60, 0.50)",
+            row=2, col=1,
+            annotation_text="70",
+            annotation_position="right",
+            annotation_font=dict(size=10, color="rgba(231, 76, 60, 0.75)"),
         )
 
-    # -----------------------------------------------------------------------
-    # Volume bars (last row)
-    # -----------------------------------------------------------------------
-    volume_colours = [
-        COLOUR_BUY if c >= o else COLOUR_SELL
-        for c, o in zip(df["Close"], df["Open"])
-    ]
-    fig.add_trace(
-        go.Bar(
-            x=dates,
-            y=df["Volume"],
-            name="Volume",
-            marker_color=volume_colours,
-            opacity=0.6,
-        ),
-        row=volume_row, col=1,
-    )
+        # Oversold — 30 ───────────────────────────────────────────────────
+        fig.add_hline(
+            y=30,
+            line_dash="dash",
+            line_color="rgba(46, 204, 113, 0.50)",
+            row=2, col=1,
+            annotation_text="30",
+            annotation_position="right",
+            annotation_font=dict(size=10, color="rgba(46, 204, 113, 0.75)"),
+        )
 
-    # -----------------------------------------------------------------------
-    # Layout styling
-    # -----------------------------------------------------------------------
-    chart_height = 950 if show_macd_panel else 850
+        # Lock RSI y-axis so the scale never auto-shifts
+        fig.update_yaxes(range=[0, 100], row=2, col=1)
+
+    # =======================================================================
+    # GLOBAL LAYOUT  —  minimal dark theme
+    # =======================================================================
+    _strategy_label = strategy_column.replace("_", " ")
 
     fig.update_layout(
+        # Chart title (small, left-aligned, secondary)
         title=dict(
-            text=f"<b>Stock Quant Analysis Dashboard</b>  ·  {strategy_column}",
-            font=dict(size=18, color="white"),
-            x=0.5,
+            text=_strategy_label,
+            font=dict(size=13, color=_TEXT, family="DM Mono, monospace"),
+            x=0.01,
+            xanchor="left",
         ),
-        paper_bgcolor="#0F1117",
-        plot_bgcolor="#161B22",
-        font=dict(color="#C9D1D9", size=12),
+
+        # Background
+        paper_bgcolor=_BG,
+        plot_bgcolor=_BG,
+
+        # Base font
+        font=dict(color=_TEXT, size=11, family="DM Mono, monospace"),
+
+        # Legend — horizontal strip, top of price panel, clean entries only
         legend=dict(
             orientation="h",
             yanchor="bottom",
-            y=1.01,
-            xanchor="right",
-            x=1,
-            bgcolor="rgba(0,0,0,0)",
-            font=dict(size=11),
+            y=1.02,
+            xanchor="left",
+            x=0,
+            bgcolor="rgba(0, 0, 0, 0)",
+            font=dict(size=11, color=_TEXT_HI),
+            traceorder="normal",
+            itemsizing="constant",
         ),
+
         hovermode="x unified",
         xaxis_rangeslider_visible=False,
-        height=chart_height,
-        margin=dict(l=50, r=30, t=80, b=40),
-        bargap=0.1,
+        height=560,
+        margin=dict(l=48, r=68, t=56, b=32),
     )
 
-    axis_style = dict(
-        gridcolor="#21262D",
-        zerolinecolor="#21262D",
-        color="#8B949E",
+    # Axis styling — minimal grid, no distracting borders
+    _axis = dict(
+        gridcolor=_GRID,
+        zerolinecolor=_ZERO,
+        color=_TEXT,
+        showgrid=True,
+        linecolor=_ZERO,
+        tickfont=dict(size=10),
     )
-    fig.update_xaxes(**axis_style)
-    fig.update_yaxes(**axis_style)
+    fig.update_xaxes(**_axis)
+    fig.update_yaxes(**_axis)
+
+    # Subplot title font — make panel labels subtle
+    for ann in fig.layout.annotations:
+        ann.font = dict(size=11, color=_TEXT, family="DM Mono, monospace")
 
     print("[chart_generator] Chart built successfully.")
 
@@ -364,32 +318,28 @@ def generate_chart(
 # Test block
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    project_root = os.path.join(os.path.dirname(__file__), "..")
-    sys.path.append(os.path.join(project_root, "data"))
-    sys.path.append(os.path.join(project_root, "indicators"))
-    sys.path.append(os.path.join(project_root, "strategies"))
+    _root = os.path.join(os.path.dirname(__file__), "..")
+    sys.path.append(os.path.join(_root, "data"))
+    sys.path.append(os.path.join(_root, "indicators"))
+    sys.path.append(os.path.join(_root, "strategies"))
 
     from data_fetcher       import fetch_stock_data
     from indicators         import calculate_indicators
     from trading_strategies import run_strategies
 
-    # 1. Fetch
-    raw_df = fetch_stock_data("AAPL", "1d", "6mo")
+    _df     = fetch_stock_data("AAPL", "1d", "6mo")
+    _df     = calculate_indicators(_df)
+    _df     = run_strategies(_df, ["ma", "rsi", "macd", "bb", "ema"])
 
-    # 2. Indicators
-    df_ind = calculate_indicators(raw_df)
-
-    # 3. Strategies
-    df_signals = run_strategies(df_ind, ["ma", "rsi", "macd", "bb", "ema"])
-
-    # 4. Generate chart for MA_signal and open in browser
-    fig = generate_chart(
-        df_signals,
+    _fig = generate_chart(
+        _df,
         strategy_column="MA_signal",
         show_sma=True,
         show_ema=True,
-        show_bb=True,
+        show_bb=True,           # accepted; Bollinger Bands not drawn by design
         open_in_browser=True,
     )
 
-    print(f"\n[chart_generator] Figure contains {len(fig.data)} traces.")
+    print(f"\n[chart_generator] Trace count: {len(_fig.data)}")
+    for _t in _fig.data:
+        print(f"  {_t.name}")
