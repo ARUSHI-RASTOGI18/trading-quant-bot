@@ -870,11 +870,34 @@ if st.session_state.analysis_run:
     )
 
     display_df = comparison_df.drop(columns=["_trade_log"])
-    styled = display_df.style.applymap(
-        lambda v: "color: #23D18B" if isinstance(v, (int, float)) and v > 0
-                  else ("color: #F14C60" if isinstance(v, (int, float)) and v < 0 else ""),
-        subset=["Total Return (%)", "Max Drawdown (%)"],
-    ).format({
+
+    def _colour(v):
+        """Return green for positive, red for negative numeric values."""
+        if isinstance(v, (int, float)):
+            if v > 0:
+                return "color: #23D18B"
+            if v < 0:
+                return "color: #F14C60"
+        return ""
+
+    # pandas >= 2.1 renamed applymap → map.
+    # This wrapper tries the new name first and falls back to the old name,
+    # so the dashboard works regardless of the installed pandas version.
+    _base = display_df.style
+    try:
+        # pandas >= 2.1
+        _coloured = _base.map(
+            _colour,
+            subset=["Total Return (%)", "Max Drawdown (%)"],
+        )
+    except AttributeError:
+        # pandas < 2.1
+        _coloured = _base.applymap(      # noqa: FKA01
+            _colour,
+            subset=["Total Return (%)", "Max Drawdown (%)"],
+        )
+
+    styled = _coloured.format({
         "Final Value ($)":  "${:,.2f}",
         "Total Return (%)": "{:.2f}%",
         "Win Rate (%)":     "{:.1f}%",
