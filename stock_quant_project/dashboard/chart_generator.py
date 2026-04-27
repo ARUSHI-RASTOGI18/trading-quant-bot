@@ -101,6 +101,22 @@ def generate_chart(
 
     print(f"[chart_generator] Building chart — strategy: {strategy_column}")
 
+    # -----------------------------------------------------------------------
+    # Change 2 — sort by time so x-axis is always chronological
+    # Change 4 — drop duplicate timestamps that cause clustering
+    # Change 3 — forward-fill NaN values to prevent visual breaks in lines
+    # All three operate on a copy; the caller's DataFrame is never mutated.
+    # -----------------------------------------------------------------------
+    df = (
+        df
+        .sort_values("Date")                        # Change 2: chronological order
+        .drop_duplicates(subset="Date", keep="last") # Change 4: remove duplicate rows
+        .copy()
+    )
+    # Forward-fill numeric columns only (signals are categorical — skip them)
+    _numeric_cols = df.select_dtypes(include="number").columns
+    df[_numeric_cols] = df[_numeric_cols].ffill()   # Change 3: fill gaps
+
     # Convert dates to plain strings once — avoids timezone label noise
     dates = df["Date"].astype(str)
 
@@ -146,7 +162,8 @@ def generate_chart(
                 y=df["SMA_20"],
                 mode="lines",
                 name="SMA 20",
-                line=dict(color=_AMBER, width=1.6, dash="dot"),
+                line=dict(color=_AMBER, width=2, dash="dot"),  # Change 5: width=2
+                connectgaps=True,                               # Change 1: bridge NaN gaps
                 showlegend=True,
             ),
             row=1, col=1,
@@ -160,7 +177,8 @@ def generate_chart(
                 y=df["EMA_20"],
                 mode="lines",
                 name="EMA 20",
-                line=dict(color=_BLUE, width=1.6, dash="dash"),
+                line=dict(color=_BLUE, width=2, dash="dash"),  # Change 5: width=2
+                connectgaps=True,                               # Change 1: bridge NaN gaps
                 showlegend=True,
             ),
             row=1, col=1,
@@ -218,7 +236,8 @@ def generate_chart(
                 y=df["RSI_14"],
                 mode="lines",
                 name="RSI 14",
-                line=dict(color=_ORANGE, width=1.6),
+                line=dict(color=_ORANGE, width=2),  # Change 5: width=2
+                connectgaps=True,                    # Change 1: bridge NaN gaps
                 showlegend=False,    # panel title makes it self-evident
             ),
             row=2, col=1,
