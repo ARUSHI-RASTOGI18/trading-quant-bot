@@ -1102,29 +1102,17 @@ The system provides a structured and visual approach to understanding financial 
 
 
 
-Project Team:
+Student Name: Arushi Rastogi
 
 
 
-Student Name
-
-Team Member Name
+Supervisor: Mr Prateek Kumar Soni
 
 
 
-Supervisor:
+Institution: Jaypee Institute of Information Technology 
 
 
-
-Faculty Name
-
-
-
-Institution:
-
-
-
-University / College Name
 
 
 
